@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       .from('tenants')
       .insert({
         nome_barbearia,
-        evolution_instance: 'evolution_exchange',
+        evolution_instance: `inst_${codigo.toLowerCase()}`,
         timezone: 'America/Sao_Paulo',
         status_assinatura: 'trial',
         codigo,
