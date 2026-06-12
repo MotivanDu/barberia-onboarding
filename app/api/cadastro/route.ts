@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import QRCode from 'qrcode'
 
 function gerarCodigo(nome: string): string {
   const base = nome
@@ -23,7 +24,6 @@ export async function POST(req: NextRequest) {
 
     // Gera código único
     let codigo = gerarCodigo(nome_barbearia)
-    // Verifica se já existe
     const { data: existing } = await supabaseAdmin
       .from('tenants')
       .select('id')
@@ -32,6 +32,29 @@ export async function POST(req: NextRequest) {
     if (existing) {
       codigo = gerarCodigo(nome_barbearia + Date.now())
     }
+
+    const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
+    const link = `https://wa.me/${whatsappNumber}?text=${codigo}`
+
+    // Gera QR Code como buffer PNG
+    const qrBuffer = await QRCode.toBuffer(link, {
+      type: 'png',
+      width: 400,
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' }
+    })
+
+    // Salva QR Code no Supabase Storage
+    const qrFileName = `${codigo}.png`
+    const { error: storageError } = await supabaseAdmin.storage
+      .from('qrcodes')
+      .upload(qrFileName, qrBuffer, {
+        contentType: 'image/png',
+        upsert: true,
+      })
+    if (storageError) console.error('Storage error:', storageError)
+
+    const qrUrl = `https://jslqdyjvrhdbuooixfax.supabase.co/storage/v1/object/public/qrcodes/${qrFileName}`
 
     // Cria tenant
     const { data: tenant, error: tenantError } = await supabaseAdmin
@@ -90,8 +113,23 @@ export async function POST(req: NextRequest) {
       if (horariosError) throw horariosError
     }
 
-    const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
-    const link = `https://wa.me/${whatsappNumber}?text=${codigo}`
+    // Chama N8N para enviar mensagem de boas-vindas no WhatsApp do barbeiro
+    try {
+      await fetch('https://n8n.automacaonocode.online/webhook/barbeiro-boas-vindas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telefone: telefoneLimpo,
+          nome_barbeiro,
+          nome_barbearia,
+          codigo,
+          link,
+          qr_url: qrUrl,
+        }),
+      })
+    } catch (e) {
+      console.error('Erro ao chamar N8N boas-vindas:', e)
+    }
 
     return NextResponse.json({
       success: true,
@@ -99,6 +137,7 @@ export async function POST(req: NextRequest) {
       barbeiro_id: barbeiro.id,
       codigo,
       link,
+      qr_url: qrUrl,
     })
   } catch (error: any) {
     console.error(error)
