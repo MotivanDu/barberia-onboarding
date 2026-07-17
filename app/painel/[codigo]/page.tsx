@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
 
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 const CATEGORIAS = [
@@ -27,6 +26,8 @@ export default function PainelPage() {
   const [horarios, setHorarios] = useState<Horario[]>([])
   const [msg, setMsg] = useState('')
   const [carregando, setCarregando] = useState(true)
+  const [qr, setQr] = useState<string | null>(null)
+  const [gerandoQr, setGerandoQr] = useState(false)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -105,6 +106,50 @@ export default function PainelPage() {
 
   const updHorario = (dia: number, campo: keyof Horario, valor: string | boolean) => {
     setHorarios(hs => hs.map(h => (h.dia_semana === dia ? { ...h, [campo]: valor } : h)))
+  }
+
+  const conectarWhats = async (acao: 'conectar' | 'novo-numero') => {
+    if (acao === 'novo-numero') {
+      const ok = window.confirm(
+        'Mudei de número:\n\nIsso desconecta o WhatsApp atual e gera um novo QR Code para o número novo.\n\nSeus clientes, agendamentos e histórico continuam TODOS salvos.\n\nContinuar?'
+      )
+      if (!ok) return
+    }
+    setGerandoQr(true)
+    setQr(null)
+    try {
+      const r = await fetch('/api/qrcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo, acao }),
+      })
+      const d = await r.json()
+      setGerandoQr(false)
+      if (!r.ok) return flash('❌ ' + (d.error || 'Erro ao gerar QR'))
+      if (d.state === 'open' && !d.qr) {
+        flash('✅ WhatsApp já está conectado!')
+        carregar()
+        return
+      }
+      setQr(d.qr)
+      // poll até conectar
+      const intervalo = setInterval(async () => {
+        try {
+          const rs = await fetch(`/api/qrcode?codigo=${codigo}`)
+          const ds = await rs.json()
+          if (ds.state === 'open') {
+            clearInterval(intervalo)
+            setQr(null)
+            flash('✅ WhatsApp conectado com sucesso!')
+            carregar()
+          }
+        } catch {}
+      }, 3000)
+      setTimeout(() => clearInterval(intervalo), 120000)
+    } catch {
+      setGerandoQr(false)
+      flash('❌ Falha de conexão')
+    }
   }
 
   const stateLabel: Record<string, string> = {
@@ -263,12 +308,30 @@ export default function PainelPage() {
                 </p>
               </div>
             )}
-            <Link
-              href={`/qrcode/${codigo}`}
-              className="block w-full bg-amber-600 hover:bg-amber-500 rounded-xl py-3 font-semibold"
+            {qr && (
+              <div className="space-y-2">
+                <p className="text-gray-200 font-medium">Escaneie com o WhatsApp da barbearia:</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={qr} alt="QR Code de conexão" className="mx-auto rounded-xl bg-white p-3 w-64 h-64 object-contain" />
+                <p className="text-gray-500 text-xs">WhatsApp → Aparelhos conectados → Conectar um aparelho</p>
+              </div>
+            )}
+            {whats.state !== 'open' && (
+              <button
+                onClick={() => conectarWhats('conectar')}
+                disabled={gerandoQr}
+                className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-xl py-3 font-semibold"
+              >
+                {gerandoQr ? 'Gerando QR Code...' : qr ? '🔄 Gerar novo QR Code' : '📲 Conectar WhatsApp (QR Code)'}
+              </button>
+            )}
+            <button
+              onClick={() => conectarWhats('novo-numero')}
+              disabled={gerandoQr}
+              className="w-full bg-gray-800 hover:bg-gray-700 disabled:opacity-50 rounded-xl py-3 font-medium"
             >
-              {whats.state === 'open' ? '🔄 Gerenciar conexão / Mudei de número' : '📲 Conectar WhatsApp (QR Code)'}
-            </Link>
+              📱 Mudei de número
+            </button>
             <p className="text-gray-500 text-xs">
               Seus clientes, agendamentos e relatórios ficam sempre salvos — trocar de número não
               perde nada.
