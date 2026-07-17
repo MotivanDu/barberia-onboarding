@@ -22,7 +22,7 @@ export default function PainelPage() {
   const [aba, setAba] = useState<'servicos' | 'horarios' | 'whatsapp'>('servicos')
   const [nome, setNome] = useState('')
   const [sistemaAtivo, setSistemaAtivo] = useState(true)
-  const [whats, setWhats] = useState<{ instancia: string | null; state: string }>({ instancia: null, state: '...' })
+  const [whats, setWhats] = useState<{ instancia: string | null; state: string; numero?: string | null }>({ instancia: null, state: '...' })
   const [servicos, setServicos] = useState<Servico[]>([])
   const [horarios, setHorarios] = useState<Horario[]>([])
   const [msg, setMsg] = useState('')
@@ -244,6 +244,25 @@ export default function PainelPage() {
             <p className="text-gray-400 text-sm">
               Este é o WhatsApp que os SEUS CLIENTES usam para falar com a barbearia.
             </p>
+            {whats.state === 'open' && whats.numero && (
+              <div className="bg-gray-800 rounded-xl p-4 space-y-2">
+                <p className="text-gray-300 text-sm font-medium">📣 Link para divulgar aos clientes:</p>
+                <p className="font-mono text-amber-400 break-all">https://wa.me/{whats.numero}</p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`https://wa.me/${whats.numero}`)
+                    flash('✅ Link copiado!')
+                  }}
+                  className="bg-gray-700 hover:bg-gray-600 rounded-lg px-4 py-2 text-sm"
+                >
+                  📋 Copiar link
+                </button>
+                <p className="text-gray-500 text-xs">
+                  Quem clicar cai direto no WhatsApp da barbearia — a IA atende, apresenta os
+                  preços e agenda sozinha.
+                </p>
+              </div>
+            )}
             <Link
               href={`/qrcode/${codigo}`}
               className="block w-full bg-amber-600 hover:bg-amber-500 rounded-xl py-3 font-semibold"

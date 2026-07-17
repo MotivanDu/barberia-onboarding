@@ -62,3 +62,9 @@ export async function desligarInstancia(instanceName: string) {
   await evo(`/instance/logout/${instanceName}`, { method: 'DELETE' })
   return evo(`/instance/delete/${instanceName}`, { method: 'DELETE' })
 }
+
+export async function dadosInstancia(instanceName: string) {
+  const r = await evo(`/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`)
+  const lista = Array.isArray(r.data) ? r.data : []
+  return lista.find((i: any) => i && i.name === instanceName) || null
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { estadoInstancia } from '@/lib/evolution'
+import { estadoInstancia, dadosInstancia } from '@/lib/evolution'
 
 export async function GET(req: NextRequest) {
   const codigo = req.nextUrl.searchParams.get('codigo')
@@ -32,9 +32,15 @@ export async function GET(req: NextRequest) {
   ])
 
   let whatsappState = 'inexistente'
+  let whatsappNumero: string | null = null
   if (tenant.evolution_instance) {
-    const estado = await estadoInstancia(tenant.evolution_instance)
+    const [estado, dados] = await Promise.all([
+      estadoInstancia(tenant.evolution_instance),
+      dadosInstancia(tenant.evolution_instance),
+    ])
     whatsappState = estado?.data?.instance?.state || 'inexistente'
+    const jid = dados?.ownerJid || ''
+    whatsappNumero = jid ? jid.replace('@s.whatsapp.net', '').replace(/\D/g, '') : null
   }
 
   return NextResponse.json({
@@ -44,7 +50,7 @@ export async function GET(req: NextRequest) {
       sistema_ativo: tenant.sistema_ativo,
       endereco: tenant.endereco,
     },
-    whatsapp: { instancia: tenant.evolution_instance, state: whatsappState },
+    whatsapp: { instancia: tenant.evolution_instance, state: whatsappState, numero: whatsappNumero },
     servicos: servicos || [],
     horarios: horarios || [],
     barbeiros: barbeiros || [],
