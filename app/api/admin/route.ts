@@ -3,11 +3,12 @@ import QRCode from 'qrcode'
 import { supabaseAdmin } from '@/lib/supabase'
 import { obterQR, estadoInstancia } from '@/lib/evolution'
 
+import { usuarioAutorizado } from '@/lib/adminAuth'
+
 const INSTANCIA_BARBERIA = 'BarberIA'
 
 function autorizado(senha: string | null) {
-  const esperada = process.env.ADMIN_PASSWORD || ''
-  return esperada.length > 0 && senha === esperada
+  return usuarioAutorizado(senha) !== null
 }
 
 export async function GET(req: NextRequest) {

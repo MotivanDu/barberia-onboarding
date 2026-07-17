@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
+import { usuarioAutorizado } from '@/lib/adminAuth'
+
 function autorizado(senha: string | null) {
-  const esperada = process.env.ADMIN_PASSWORD || ''
-  return esperada.length > 0 && senha === esperada
+  return usuarioAutorizado(senha) !== null
 }
 
 function chaveMes(d: Date) {
