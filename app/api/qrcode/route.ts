@@ -7,6 +7,7 @@ import {
   obterQR,
   estadoInstancia,
   desligarInstancia,
+  dadosInstancia,
 } from '@/lib/evolution'
 
 // A instância compartilhada é o canal do BarberIA com os barbeiros — NUNCA apagar/reciclar
