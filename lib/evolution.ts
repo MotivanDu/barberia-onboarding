@@ -24,12 +24,14 @@ async function evo(path: string, init?: RequestInit) {
 }
 
 export async function criarInstancia(instanceName: string) {
+  // SEM ciclo de QR no create: o /instance/connect gera QR e/ou pairing code sob demanda.
+  // (Com qrcode:true o socket entra em ciclo de QR e o pairing code vem vazio — testado em 20/07.)
   return evo('/instance/create', {
     method: 'POST',
     body: JSON.stringify({
       instanceName,
       integration: 'WHATSAPP-BAILEYS',
-      qrcode: true,
+      qrcode: false,
     }),
   })
 }

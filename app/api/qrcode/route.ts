@@ -86,11 +86,25 @@ export async function POST(req: NextRequest) {
     }
 
     // Cria a instância (se já existir, a Evolution recusa — seguimos em frente)
-    const criada = await criarInstancia(instancia)
+    let criada = await criarInstancia(instancia)
     const hash =
       typeof criada?.data?.hash === 'string'
         ? criada.data.hash
         : criada?.data?.hash?.apikey || null
+
+    // MODO CÓDIGO: se a instância já existia presa em ciclo de QR, o pairing vem vazio.
+    // Reciclar é seguro SOMENTE se ela NUNCA teve sessão (ownerJid vazio) — instância que
+    // já conectou alguma vez jamais é deletada aqui (a sessão salva permite reconexão).
+    if (numeroLimpo && instancia !== INSTANCIA_RESERVADA && !criada.ok) {
+      const [dados, estadoAtual] = await Promise.all([dadosInstancia(instancia), estadoInstancia(instancia)])
+      const st = estadoAtual?.data?.instance?.state
+      const nuncaConectou = !dados?.ownerJid
+      if (st !== 'open' && nuncaConectou) {
+        await desligarInstancia(instancia)
+        criada = await criarInstancia(instancia)
+      }
+    }
+    if (criada.ok) await new Promise(r => setTimeout(r, 2000)) // socket recém-criado precisa de um instante
 
     // Webhook da instância → n8n (mensagens + status de conexão)
     await configurarWebhook(instancia)
@@ -103,15 +117,16 @@ export async function POST(req: NextRequest) {
     if (hash) patch.evolution_apikey = hash
     await supabaseAdmin.from('tenants').update(patch).eq('id', tenant.id)
 
-    // Conexão: QR (padrão) e/ou pairing code de 8 dígitos (fallback iPhone)
-    let qr = await extrairQrDataUrl(criada)
-    let pairing: string | null =
-      criada?.data?.qrcode?.pairingCode || criada?.data?.pairingCode || null
+    // Conexão: QR (padrão) e/ou pairing code de 8 dígitos (fallback iPhone) — via /connect
+    let conectar = await obterQR(instancia, numeroLimpo)
+    let qr = numeroLimpo ? null : await extrairQrDataUrl(conectar)
+    let pairing: string | null = conectar?.data?.pairingCode || null
 
-    if (numeroLimpo || !qr) {
-      const conectar = await obterQR(instancia, numeroLimpo)
-      if (!qr) qr = await extrairQrDataUrl(conectar)
-      pairing = conectar?.data?.pairingCode || pairing
+    // pairing pode demorar 1-2s a mais em socket novo: uma retentativa
+    if (numeroLimpo && !pairing) {
+      await new Promise(r => setTimeout(r, 2500))
+      conectar = await obterQR(instancia, numeroLimpo)
+      pairing = conectar?.data?.pairingCode || null
     }
 
     const estado = await estadoInstancia(instancia)
