@@ -11,6 +11,9 @@ export default function QrCodePage() {
 
   const [status, setStatus] = useState<Status>('carregando')
   const [qr, setQr] = useState<string | null>(null)
+  const [pairing, setPairing] = useState<string | null>(null)
+  const [modoCodigo, setModoCodigo] = useState(false)
+  const [numeroPareamento, setNumeroPareamento] = useState('')
   const [nome, setNome] = useState('')
   const [erro, setErro] = useState('')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -38,15 +41,16 @@ export default function QrCodePage() {
   }, [codigo])
 
   const conectar = useCallback(
-    async (acao: 'conectar' | 'novo-numero') => {
+    async (acao: 'conectar' | 'novo-numero', numero?: string) => {
       setStatus('carregando')
       setErro('')
       setQr(null)
+      setPairing(null)
       try {
         const r = await fetch('/api/qrcode', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ codigo, acao }),
+          body: JSON.stringify({ codigo, acao, numero }),
         })
         const d = await r.json()
         if (!r.ok) {
@@ -55,11 +59,12 @@ export default function QrCodePage() {
           return
         }
         if (d.nome_barbearia) setNome(d.nome_barbearia)
-        if (d.state === 'open') {
+        if (d.state === 'open' && !d.qr && !d.pairing) {
           setStatus('conectado')
           return
         }
-        setQr(d.qr)
+        setQr(numero ? null : d.qr)
+        setPairing(d.pairing || null)
         setStatus('qr')
         iniciarPoll()
       } catch {
@@ -121,7 +126,7 @@ export default function QrCodePage() {
             </div>
           )}
 
-          {status === 'qr' && qr && (
+          {status === 'qr' && qr && !modoCodigo && (
             <>
               <p className="text-gray-200 font-medium">
                 Abra o WhatsApp no celular da barbearia e escaneie:
@@ -145,6 +150,47 @@ export default function QrCodePage() {
                 🔄 Gerar novo QR Code
               </button>
             </>
+          )}
+          {status === 'qr' && pairing && modoCodigo && (
+            <div className="space-y-3 bg-gray-800 rounded-xl p-5">
+              <p className="text-gray-200 font-medium">Digite este código no WhatsApp:</p>
+              <p className="font-mono text-5xl font-bold tracking-widest text-amber-400">
+                {pairing.slice(0, 4)}-{pairing.slice(4)}
+              </p>
+              <p className="text-gray-400 text-sm text-left leading-relaxed">
+                No celular da barbearia:<br />
+                1. WhatsApp → <b>Configurações</b> → <b>Aparelhos conectados</b><br />
+                2. <b>Conectar um aparelho</b><br />
+                3. Toque em <b>"Conectar com número de telefone"</b><br />
+                4. Digite o código acima
+              </p>
+              <p className="text-gray-500 text-xs">O código expira rápido — se não der tempo, gere outro.</p>
+            </div>
+          )}
+          {(status === 'qr' || status === 'erro') && (
+            <div className="bg-gray-800/60 rounded-xl p-4 space-y-3 text-left">
+              <button onClick={() => setModoCodigo(!modoCodigo)} className="text-amber-500 hover:underline text-sm">
+                {modoCodigo ? '← Voltar para o QR Code' : '📞 Não consegue escanear? (iPhone) — Conectar com código'}
+              </button>
+              {modoCodigo && (
+                <div className="space-y-2">
+                  <input
+                    value={numeroPareamento}
+                    onChange={e => setNumeroPareamento(e.target.value)}
+                    placeholder="Número do WhatsApp com DDD (ex.: 11 99999-8888)"
+                    inputMode="tel"
+                    className="w-full bg-gray-900 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    onClick={() => numeroPareamento.trim() && conectar('conectar', numeroPareamento)}
+                    disabled={!numeroPareamento.trim()}
+                    className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-xl py-3 font-semibold"
+                  >
+                    🔢 Gerar código de 8 dígitos
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           {status === 'conectado' && (

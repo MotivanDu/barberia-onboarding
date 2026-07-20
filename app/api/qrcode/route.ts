@@ -58,8 +58,21 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { codigo, acao } = await req.json()
+    const { codigo, acao, numero } = await req.json()
     if (!codigo) return NextResponse.json({ error: 'codigo obrigatório' }, { status: 400 })
+
+    // Pareamento por código (fallback p/ iPhone): normaliza o número
+    let numeroLimpo: string | undefined
+    if (numero) {
+      numeroLimpo = String(numero).replace(/\D/g, '')
+      if (numeroLimpo.length === 10 || numeroLimpo.length === 11) numeroLimpo = '55' + numeroLimpo
+      if (numeroLimpo.length < 12 || numeroLimpo.length > 13) {
+        return NextResponse.json(
+          { error: 'Número inválido. Use DDD + número (ex.: 11 99999-8888).' },
+          { status: 400 }
+        )
+      }
+    }
 
     const tenant = await buscarTenant(codigo)
     if (!tenant) return NextResponse.json({ error: 'Barbearia não encontrada' }, { status: 404 })
@@ -90,24 +103,34 @@ export async function POST(req: NextRequest) {
     if (hash) patch.evolution_apikey = hash
     await supabaseAdmin.from('tenants').update(patch).eq('id', tenant.id)
 
-    // QR: primeiro da resposta do create; senão pede via connect
+    // Conexão: QR (padrão) e/ou pairing code de 8 dígitos (fallback iPhone)
     let qr = await extrairQrDataUrl(criada)
-    if (!qr) {
-      const conectar = await obterQR(instancia)
-      qr = await extrairQrDataUrl(conectar)
+    let pairing: string | null =
+      criada?.data?.qrcode?.pairingCode || criada?.data?.pairingCode || null
+
+    if (numeroLimpo || !qr) {
+      const conectar = await obterQR(instancia, numeroLimpo)
+      if (!qr) qr = await extrairQrDataUrl(conectar)
+      pairing = conectar?.data?.pairingCode || pairing
     }
 
     const estado = await estadoInstancia(instancia)
     const state = estado?.data?.instance?.state || 'close'
 
-    if (!qr && state !== 'open') {
+    if (numeroLimpo && !pairing && state !== 'open') {
+      return NextResponse.json(
+        { error: 'Não foi possível gerar o código. Confira o número (com DDD) e tente novamente.', state },
+        { status: 502 }
+      )
+    }
+    if (!qr && !pairing && state !== 'open') {
       return NextResponse.json(
         { error: 'Não foi possível gerar o QR Code. Tente novamente.', state },
         { status: 502 }
       )
     }
 
-    return NextResponse.json({ qr, instancia, state, nome_barbearia: tenant.nome_barbearia })
+    return NextResponse.json({ qr, pairing, instancia, state, nome_barbearia: tenant.nome_barbearia })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'erro inesperado'
     return NextResponse.json({ error: msg }, { status: 500 })

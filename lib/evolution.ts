@@ -50,8 +50,9 @@ export async function configurarWebhook(instanceName: string) {
   })
 }
 
-export async function obterQR(instanceName: string) {
-  return evo(`/instance/connect/${instanceName}`)
+export async function obterQR(instanceName: string, numero?: string) {
+  const query = numero ? `?number=${encodeURIComponent(numero)}` : ''
+  return evo(`/instance/connect/${instanceName}${query}`)
 }
 
 export async function estadoInstancia(instanceName: string) {
