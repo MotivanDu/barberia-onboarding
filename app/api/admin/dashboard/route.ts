@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
 import { usuarioAutorizado } from '@/lib/adminAuth'
+import {
+  asaasConfigurado,
+  obterOuCriarCliente,
+  criarAssinatura,
+  atualizarValorAssinatura,
+  cancelarAssinatura,
+} from '@/lib/asaas'
 
 function autorizado(senha: string | null) {
   return usuarioAutorizado(senha) !== null
@@ -30,7 +37,7 @@ export async function GET(req: NextRequest) {
     await Promise.all([
       supabaseAdmin
         .from('tenants')
-        .select('id, codigo, nome_barbearia, status_assinatura, sistema_ativo, evolution_instance, evolution_status, criado_em, plano_id, contrato_inicio')
+        .select('id, codigo, nome_barbearia, status_assinatura, sistema_ativo, evolution_instance, evolution_status, criado_em, plano_id, contrato_inicio, cpf_cnpj, bloqueado_pagamento, asaas_subscription_id')
         .order('criado_em', { ascending: true }),
       supabaseAdmin.from('planos').select('*').order('preco_mensal', { ascending: true }),
       supabaseAdmin
@@ -145,6 +152,9 @@ export async function GET(req: NextRequest) {
       criado_em: t.criado_em,
       plano: plano ? { id: plano.id, nome: plano.nome, preco_mensal: plano.preco_mensal, duracao_meses: plano.duracao_meses } : null,
       contrato_inicio: t.contrato_inicio,
+      cpf_cnpj: t.cpf_cnpj,
+      bloqueado_pagamento: t.bloqueado_pagamento,
+      cobranca_ativa: !!t.asaas_subscription_id,
       meses_restantes: mesesRestantes,
       total_clientes: clientesDoTenant.length,
       agendamentos_30d: ags30d,
@@ -219,11 +229,85 @@ export async function POST(req: NextRequest) {
 
     if (body.acao === 'definir-plano') {
       const { codigo, plano_id } = body
+      const cod = String(codigo).toUpperCase()
+
+      const { data: tenant } = await supabaseAdmin
+        .from('tenants')
+        .select('id, nome_barbearia, codigo, cpf_cnpj, asaas_customer_id, asaas_subscription_id, barbeiros(nome, telefone)')
+        .eq('codigo', cod)
+        .single()
+      if (!tenant) return NextResponse.json({ error: 'Barbearia não encontrada' }, { status: 404 })
+
       const patch: Record<string, unknown> = {
         plano_id: plano_id || null,
         contrato_inicio: plano_id ? new Date().toISOString().slice(0, 10) : null,
       }
-      const { error } = await supabaseAdmin.from('tenants').update(patch).eq('codigo', String(codigo).toUpperCase())
+
+      // Integração Asaas (quando configurado)
+      if (asaasConfigurado()) {
+        if (!plano_id) {
+          // removeu o plano → cancela assinatura no Asaas
+          if (tenant.asaas_subscription_id) {
+            const c = await cancelarAssinatura(tenant.asaas_subscription_id)
+            if (!c.ok) return NextResponse.json({ error: `Asaas: ${c.erro}` }, { status: 502 })
+            patch.asaas_subscription_id = null
+          }
+        } else {
+          const { data: plano } = await supabaseAdmin.from('planos').select('*').eq('id', plano_id).single()
+          if (!plano) return NextResponse.json({ error: 'Plano não encontrado' }, { status: 404 })
+
+          if (!tenant.cpf_cnpj) {
+            return NextResponse.json(
+              { error: 'Cadastre o CPF/CNPJ da barbearia antes de ativar a cobrança (campo na lista de barbearias).' },
+              { status: 400 }
+            )
+          }
+
+          const barbeiro: any = Array.isArray(tenant.barbeiros) ? tenant.barbeiros[0] : tenant.barbeiros
+          let customerId = tenant.asaas_customer_id
+          if (!customerId) {
+            const cli = await obterOuCriarCliente({
+              nome: barbeiro?.nome || tenant.nome_barbearia,
+              cpfCnpj: tenant.cpf_cnpj,
+              telefone: barbeiro?.telefone || null,
+              externalReference: tenant.codigo,
+            })
+            if (!cli.ok) return NextResponse.json({ error: `Asaas: ${cli.erro}` }, { status: 502 })
+            customerId = cli.id
+            patch.asaas_customer_id = customerId
+          }
+
+          if (tenant.asaas_subscription_id) {
+            const up = await atualizarValorAssinatura(tenant.asaas_subscription_id, parseFloat(plano.preco_mensal))
+            if (!up.ok) return NextResponse.json({ error: `Asaas: ${up.erro}` }, { status: 502 })
+          } else {
+            const ass = await criarAssinatura({
+              customerId: customerId!,
+              valor: parseFloat(plano.preco_mensal),
+              descricao: `BarberIA — plano ${plano.nome} (${tenant.nome_barbearia})`,
+              externalReference: tenant.codigo,
+            })
+            if (!ass.ok) return NextResponse.json({ error: `Asaas: ${ass.erro}` }, { status: 502 })
+            patch.asaas_subscription_id = ass.id
+          }
+        }
+      }
+
+      const { error } = await supabaseAdmin.from('tenants').update(patch).eq('codigo', cod)
+      if (error) throw error
+      return NextResponse.json({ ok: true, asaas: asaasConfigurado() })
+    }
+
+    if (body.acao === 'salvar-cpf') {
+      const { codigo, cpf_cnpj } = body
+      const limpo = String(cpf_cnpj || '').replace(/\D/g, '')
+      if (limpo.length !== 11 && limpo.length !== 14) {
+        return NextResponse.json({ error: 'CPF (11 dígitos) ou CNPJ (14 dígitos) inválido' }, { status: 400 })
+      }
+      const { error } = await supabaseAdmin
+        .from('tenants')
+        .update({ cpf_cnpj: limpo })
+        .eq('codigo', String(codigo).toUpperCase())
       if (error) throw error
       return NextResponse.json({ ok: true })
     }
@@ -242,6 +326,27 @@ export async function POST(req: NextRequest) {
       if (id) {
         const { error } = await supabaseAdmin.from('planos').update(dados).eq('id', id)
         if (error) throw error
+
+        // Propaga o novo preço para TODAS as assinaturas Asaas deste plano (pedido do Du:
+        // "valores alterados têm que alterar automaticamente no Asaas")
+        if (asaasConfigurado()) {
+          const { data: assinantes } = await supabaseAdmin
+            .from('tenants')
+            .select('codigo, asaas_subscription_id')
+            .eq('plano_id', id)
+            .not('asaas_subscription_id', 'is', null)
+          const falhas: string[] = []
+          for (const t of assinantes || []) {
+            const up = await atualizarValorAssinatura(t.asaas_subscription_id!, dados.preco_mensal)
+            if (!up.ok) falhas.push(`${t.codigo}: ${up.erro}`)
+          }
+          if (falhas.length > 0) {
+            return NextResponse.json(
+              { ok: true, aviso: `Preço salvo, mas falhou no Asaas para: ${falhas.join('; ')}` }
+            )
+          }
+          return NextResponse.json({ ok: true, sincronizados: (assinantes || []).length })
+        }
       } else {
         const { error } = await supabaseAdmin.from('planos').insert(dados)
         if (error) throw error

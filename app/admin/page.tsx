@@ -29,6 +29,9 @@ type Barbearia = {
   total_clientes: number
   agendamentos_30d: number
   receita_gerada: number
+  cpf_cnpj: string | null
+  bloqueado_pagamento: boolean
+  cobranca_ativa: boolean
 }
 type Cliente = {
   nome: string
@@ -333,6 +336,8 @@ export default function AdminPage() {
                       {b.evolution_status === 'conectado' ? '🟢' : b.evolution_status === 'conectando' ? '🟡' : '🔴'}{' '}
                       {b.nome_barbearia}
                       {!b.sistema_ativo && <span className="text-red-400 text-sm ml-2">⏸️</span>}
+                      {b.bloqueado_pagamento && <span className="text-red-400 text-sm ml-2">💳 pagamento pendente</span>}
+                      {b.cobranca_ativa && !b.bloqueado_pagamento && <span className="text-green-400 text-sm ml-2">💳 cobrança ativa</span>}
                     </p>
                     <p className="text-gray-400 text-sm font-mono">
                       {b.codigo} · desde {new Date(b.criado_em).toLocaleDateString('pt-BR')}
@@ -368,6 +373,10 @@ export default function AdminPage() {
                     <option value="ativo">ativo</option>
                     <option value="cancelado">cancelado</option>
                   </select>
+                  <CpfInput
+                    valorInicial={b.cpf_cnpj || ''}
+                    onSalvar={cpf => acao({ acao: 'salvar-cpf', codigo: b.codigo, cpf_cnpj: cpf })}
+                  />
                   {b.plano && b.meses_restantes > 0 && (
                     <span className="text-gray-400">
                       contrato: {b.meses_restantes} meses restantes ({brl(parseFloat(String(b.plano.preco_mensal)) * b.meses_restantes)} a receber)
@@ -456,6 +465,27 @@ export default function AdminPage() {
         )}
       </div>
     </div>
+  )
+}
+
+function CpfInput({ valorInicial, onSalvar }: { valorInicial: string; onSalvar: (cpf: string) => void }) {
+  const [cpf, setCpf] = useState(valorInicial)
+  const mudou = cpf.replace(/\D/g, '') !== (valorInicial || '').replace(/\D/g, '')
+  return (
+    <span className="flex items-center gap-1">
+      <input
+        value={cpf}
+        onChange={e => setCpf(e.target.value)}
+        placeholder="CPF/CNPJ (p/ cobrança)"
+        inputMode="numeric"
+        className="bg-gray-800 rounded-lg px-3 py-2 w-48 text-sm"
+      />
+      {mudou && cpf.replace(/\D/g, '').length >= 11 && (
+        <button onClick={() => onSalvar(cpf)} className="bg-gray-700 hover:bg-gray-600 rounded-lg px-2 py-2 text-sm">
+          💾
+        </button>
+      )}
+    </span>
   )
 }
 
