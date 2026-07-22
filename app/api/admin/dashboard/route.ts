@@ -284,22 +284,22 @@ export async function POST(req: NextRequest) {
           const splitPct = parseFloat(process.env.ASAAS_SPLIT_PCT || '50')
           const split = splitWallet ? [{ walletId: splitWallet, percentualValue: splitPct }] : undefined
 
+          // Troca de plano: cancela a assinatura antiga e recria com o ciclo/método/valor do novo
+          // plano (só atualizar o valor não mudaria ciclo mensal↔anual nem cartão↔pix).
           if (tenant.asaas_subscription_id) {
-            const up = await atualizarValorAssinatura(tenant.asaas_subscription_id, valorCobranca)
-            if (!up.ok) return NextResponse.json({ error: `Asaas: ${up.erro}` }, { status: 502 })
-          } else {
-            const ass = await criarAssinatura({
-              customerId: customerId!,
-              valor: valorCobranca,
-              billingType: plano.billing_type || 'UNDEFINED',
-              cycle: plano.ciclo || 'MONTHLY',
-              split,
-              descricao: `BarberIA — plano ${plano.nome} (${tenant.nome_barbearia})`,
-              externalReference: tenant.codigo,
-            })
-            if (!ass.ok) return NextResponse.json({ error: `Asaas: ${ass.erro}` }, { status: 502 })
-            patch.asaas_subscription_id = ass.id
+            await cancelarAssinatura(tenant.asaas_subscription_id)
           }
+          const ass = await criarAssinatura({
+            customerId: customerId!,
+            valor: valorCobranca,
+            billingType: plano.billing_type || 'UNDEFINED',
+            cycle: plano.ciclo || 'MONTHLY',
+            split,
+            descricao: `BarberIA — plano ${plano.nome} (${tenant.nome_barbearia})`,
+            externalReference: tenant.codigo,
+          })
+          if (!ass.ok) return NextResponse.json({ error: `Asaas: ${ass.erro}` }, { status: 502 })
+          patch.asaas_subscription_id = ass.id
         }
       }
 
