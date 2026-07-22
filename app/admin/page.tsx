@@ -15,7 +15,18 @@ import {
   CartesianGrid,
 } from 'recharts'
 
-type Plano = { id: string; nome: string; preco_mensal: number; duracao_meses: number }
+type Plano = {
+  id: string
+  nome: string
+  preco_mensal: number
+  duracao_meses: number
+  valor_cobranca?: number | null
+  ciclo?: string | null
+  metodos_pagamento?: string | null
+  valor_cheio?: number | null
+  desconto_pct?: number | null
+  ativo?: boolean
+}
 type Barbearia = {
   codigo: string
   nome_barbearia: string
@@ -357,11 +368,16 @@ export default function AdminPage() {
                     className="bg-gray-800 rounded-lg px-3 py-2"
                   >
                     <option value="">— sem plano —</option>
-                    {dash.planos.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.nome} · {brl(p.preco_mensal)}/mês · {p.duracao_meses}m
-                      </option>
-                    ))}
+                    {dash.planos.filter(p => p.ativo !== false).map(p => {
+                      const valor = p.valor_cobranca ?? p.preco_mensal
+                      const periodo = (p.ciclo === 'YEARLY' || (p.duracao_meses || 1) >= 12) ? '/ano' : '/mês'
+                      const desc = p.desconto_pct ? ` (${p.desconto_pct}% OFF)` : ''
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {p.nome} · {brl(valor)}{periodo}{desc} · {p.metodos_pagamento || ''}
+                        </option>
+                      )
+                    })}
                   </select>
                   <select
                     value={b.status_assinatura}
@@ -432,11 +448,11 @@ export default function AdminPage() {
         )}
 
         {aba === 'planos' && dash && (
-          <div className="space-y-3 max-w-2xl">
+          <div className="space-y-3 max-w-3xl">
             <p className="text-gray-400 text-sm">
-              Edite os valores — MRR, backlog e previsão recalculam na hora. (Valores rascunho criados pelo Claude; ajuste ao seu preço real.)
+              Ao alterar o valor de um plano, todas as assinaturas ativas dele são atualizadas automaticamente no Asaas.
             </p>
-            {dash.planos.map(p => (
+            {dash.planos.filter(p => p.ativo !== false).map(p => (
               <PlanoEditor key={p.id} plano={p} onSalvar={pl => acao({ acao: 'salvar-plano', plano: pl })} />
             ))}
             <PlanoEditor plano={null} onSalvar={pl => acao({ acao: 'salvar-plano', plano: pl })} />
@@ -491,29 +507,46 @@ function CpfInput({ valorInicial, onSalvar }: { valorInicial: string; onSalvar: 
 
 function PlanoEditor({ plano, onSalvar }: { plano: Plano | null; onSalvar: (p: Record<string, unknown>) => void }) {
   const [nome, setNome] = useState(plano?.nome || '')
-  const [preco, setPreco] = useState(plano ? String(plano.preco_mensal) : '')
-  const [meses, setMeses] = useState(plano ? String(plano.duracao_meses) : '12')
+  const [valor, setValor] = useState(plano ? String(plano.valor_cobranca ?? plano.preco_mensal) : '')
+  const [meses, setMeses] = useState(plano ? String(plano.duracao_meses) : '1')
+  const [cheio, setCheio] = useState(plano?.valor_cheio ? String(plano.valor_cheio) : '')
+
+  const v = parseFloat(valor) || 0
+  const c = parseFloat(cheio) || 0
+  const descPct = c > v && c > 0 ? Math.round((1 - v / c) * 100) : null
+  const anual = (parseInt(meses) || 1) >= 12
 
   return (
-    <div className="bg-gray-900 rounded-2xl p-4 flex items-end gap-3 flex-wrap">
-      <div className="flex-1 min-w-32">
-        <label className="text-xs text-gray-400">Nome</label>
-        <input value={nome} onChange={e => setNome(e.target.value)} placeholder={plano ? '' : 'Novo plano...'} className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1" />
+    <div className="bg-gray-900 rounded-2xl p-4 space-y-3">
+      <div className="flex items-end gap-3 flex-wrap">
+        <div className="flex-1 min-w-40">
+          <label className="text-xs text-gray-400">Nome</label>
+          <input value={nome} onChange={e => setNome(e.target.value)} placeholder={plano ? '' : 'Novo plano...'} className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1" />
+        </div>
+        <div className="w-32">
+          <label className="text-xs text-gray-400">Valor cobrado R$</label>
+          <input value={valor} onChange={e => setValor(e.target.value)} inputMode="decimal" className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1" />
+        </div>
+        <div className="w-24">
+          <label className="text-xs text-gray-400">Meses</label>
+          <input value={meses} onChange={e => setMeses(e.target.value)} inputMode="numeric" className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1" />
+        </div>
+        <div className="w-36">
+          <label className="text-xs text-gray-400">Valor cheio (p/ desconto)</label>
+          <input value={cheio} onChange={e => setCheio(e.target.value)} inputMode="decimal" placeholder="opcional" className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1" />
+        </div>
+        <button
+          onClick={() => nome && valor && onSalvar({ id: plano?.id, nome, valor_cobranca: valor, duracao_meses: meses, valor_cheio: cheio || null })}
+          className="bg-amber-600 hover:bg-amber-500 rounded-lg px-4 py-2 font-medium"
+        >
+          💾 {plano ? 'Salvar' : 'Criar'}
+        </button>
       </div>
-      <div className="w-32">
-        <label className="text-xs text-gray-400">R$/mês</label>
-        <input value={preco} onChange={e => setPreco(e.target.value)} inputMode="decimal" className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1" />
+      <div className="flex items-center gap-3 text-xs">
+        <span className="text-gray-400">{anual ? '📅 Anual (Pix ou Cartão)' : '📅 Mensal recorrente (Cartão)'}</span>
+        {descPct && <span className="bg-green-900/50 text-green-300 rounded-full px-3 py-1 font-semibold">💰 {descPct}% OFF · economia de {brl(c - v)}</span>}
+        {plano?.metodos_pagamento && <span className="text-gray-500">· {plano.metodos_pagamento}</span>}
       </div>
-      <div className="w-28">
-        <label className="text-xs text-gray-400">Meses</label>
-        <input value={meses} onChange={e => setMeses(e.target.value)} inputMode="numeric" className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1" />
-      </div>
-      <button
-        onClick={() => nome && preco && onSalvar({ id: plano?.id, nome, preco_mensal: preco, duracao_meses: meses })}
-        className="bg-amber-600 hover:bg-amber-500 rounded-lg px-4 py-2 font-medium"
-      >
-        💾 {plano ? 'Salvar' : 'Criar'}
-      </button>
     </div>
   )
 }

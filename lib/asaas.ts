@@ -59,27 +59,31 @@ export async function obterOuCriarCliente(params: {
   return { ok: true as const, id: criado.data.id as string }
 }
 
-// Assinatura recorrente mensal; billingType UNDEFINED = cliente escolhe Pix/boleto/cartão no link
+// Assinatura recorrente. billingType: CREDIT_CARD (cobra sozinho no cartão),
+// UNDEFINED (cliente escolhe Pix/cartão/boleto no link), PIX, BOLETO.
+// cycle: MONTHLY | YEARLY. Split opcional (divisão automática entre contas Asaas).
 export async function criarAssinatura(params: {
   customerId: string
   valor: number
   descricao: string
   externalReference: string
+  billingType?: string
+  cycle?: string
+  split?: { walletId: string; percentualValue: number }[]
 }) {
   const hoje = new Date()
   const vencimento = new Date(hoje.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-  const r = await asaas('/subscriptions', {
-    method: 'POST',
-    body: JSON.stringify({
-      customer: params.customerId,
-      billingType: 'UNDEFINED',
-      value: params.valor,
-      nextDueDate: vencimento,
-      cycle: 'MONTHLY',
-      description: params.descricao,
-      externalReference: params.externalReference,
-    }),
-  })
+  const body: Record<string, unknown> = {
+    customer: params.customerId,
+    billingType: params.billingType || 'UNDEFINED',
+    value: params.valor,
+    nextDueDate: vencimento,
+    cycle: params.cycle || 'MONTHLY',
+    description: params.descricao,
+    externalReference: params.externalReference,
+  }
+  if (params.split && params.split.length > 0) body.split = params.split
+  const r = await asaas('/subscriptions', { method: 'POST', body: JSON.stringify(body) })
   if (!r.ok) return { ok: false as const, erro: erroAsaas(r) }
   return { ok: true as const, id: r.data.id as string }
 }

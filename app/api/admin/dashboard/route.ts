@@ -277,13 +277,23 @@ export async function POST(req: NextRequest) {
             patch.asaas_customer_id = customerId
           }
 
+          // valor efetivamente cobrado (150 mensal, 1200 anual) e método/ciclo do plano
+          const valorCobranca = parseFloat(plano.valor_cobranca ?? plano.preco_mensal)
+          // Split automático com o sócio (ativado quando ASAAS_SPLIT_WALLET_ID estiver setado)
+          const splitWallet = process.env.ASAAS_SPLIT_WALLET_ID
+          const splitPct = parseFloat(process.env.ASAAS_SPLIT_PCT || '50')
+          const split = splitWallet ? [{ walletId: splitWallet, percentualValue: splitPct }] : undefined
+
           if (tenant.asaas_subscription_id) {
-            const up = await atualizarValorAssinatura(tenant.asaas_subscription_id, parseFloat(plano.preco_mensal))
+            const up = await atualizarValorAssinatura(tenant.asaas_subscription_id, valorCobranca)
             if (!up.ok) return NextResponse.json({ error: `Asaas: ${up.erro}` }, { status: 502 })
           } else {
             const ass = await criarAssinatura({
               customerId: customerId!,
-              valor: parseFloat(plano.preco_mensal),
+              valor: valorCobranca,
+              billingType: plano.billing_type || 'UNDEFINED',
+              cycle: plano.ciclo || 'MONTHLY',
+              split,
               descricao: `BarberIA — plano ${plano.nome} (${tenant.nome_barbearia})`,
               externalReference: tenant.codigo,
             })
@@ -313,22 +323,32 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.acao === 'salvar-plano') {
-      const { id, nome, preco_mensal, duracao_meses } = body.plano || {}
-      if (!nome || preco_mensal === undefined) {
-        return NextResponse.json({ error: 'Nome e preço obrigatórios' }, { status: 400 })
+      const p = body.plano || {}
+      const { id, nome, duracao_meses } = p
+      // valor_cobranca é o valor real cobrado (150 mensal, 1200 anual); fallback p/ preco_mensal (compat)
+      const valorCobranca = parseFloat(p.valor_cobranca ?? p.preco_mensal)
+      if (!nome || isNaN(valorCobranca)) {
+        return NextResponse.json({ error: 'Nome e valor obrigatórios' }, { status: 400 })
       }
-      const dados = {
+      const meses = parseInt(duracao_meses) || 1
+      const valorCheio = p.valor_cheio ? parseFloat(p.valor_cheio) : null
+      const dados: Record<string, unknown> = {
         nome: String(nome).trim(),
-        preco_mensal: parseFloat(preco_mensal),
-        duracao_meses: parseInt(duracao_meses) || 1,
+        valor_cobranca: valorCobranca,
+        preco_mensal: Math.round((valorCobranca / meses) * 100) / 100, // MRR-equivalente
+        duracao_meses: meses,
+        ciclo: meses >= 12 ? 'YEARLY' : 'MONTHLY',
+        billing_type: p.billing_type || (meses >= 12 ? 'UNDEFINED' : 'CREDIT_CARD'),
+        metodos_pagamento: p.metodos_pagamento || (meses >= 12 ? 'Pix ou Cartao' : 'Cartao de credito'),
+        valor_cheio: valorCheio,
+        desconto_pct: valorCheio && valorCheio > valorCobranca ? Math.round((1 - valorCobranca / valorCheio) * 100) : null,
         ativo: true,
       }
       if (id) {
         const { error } = await supabaseAdmin.from('planos').update(dados).eq('id', id)
         if (error) throw error
 
-        // Propaga o novo preço para TODAS as assinaturas Asaas deste plano (pedido do Du:
-        // "valores alterados têm que alterar automaticamente no Asaas")
+        // Propaga o novo valor para TODAS as assinaturas Asaas deste plano
         if (asaasConfigurado()) {
           const { data: assinantes } = await supabaseAdmin
             .from('tenants')
@@ -337,13 +357,11 @@ export async function POST(req: NextRequest) {
             .not('asaas_subscription_id', 'is', null)
           const falhas: string[] = []
           for (const t of assinantes || []) {
-            const up = await atualizarValorAssinatura(t.asaas_subscription_id!, dados.preco_mensal)
+            const up = await atualizarValorAssinatura(t.asaas_subscription_id!, valorCobranca)
             if (!up.ok) falhas.push(`${t.codigo}: ${up.erro}`)
           }
           if (falhas.length > 0) {
-            return NextResponse.json(
-              { ok: true, aviso: `Preço salvo, mas falhou no Asaas para: ${falhas.join('; ')}` }
-            )
+            return NextResponse.json({ ok: true, aviso: `Valor salvo, mas falhou no Asaas para: ${falhas.join('; ')}` })
           }
           return NextResponse.json({ ok: true, sincronizados: (assinantes || []).length })
         }
