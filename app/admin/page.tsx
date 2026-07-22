@@ -99,6 +99,11 @@ export default function AdminPage() {
   const [qr, setQr] = useState<string | null>(null)
   const [gerandoQr, setGerandoQr] = useState(false)
   const [centralState, setCentralState] = useState('')
+  const [centralNumero, setCentralNumero] = useState<string | null>(null)
+  const [barbeirosTotal, setBarbeirosTotal] = useState(0)
+  const [pairingCentral, setPairingCentral] = useState<string | null>(null)
+  const [modoCodigoCentral, setModoCodigoCentral] = useState(false)
+  const [numeroCentralNovo, setNumeroCentralNovo] = useState('')
   const [salvandoPlano, setSalvandoPlano] = useState(false)
   const senhaRef = useRef('')
 
@@ -123,7 +128,11 @@ export default function AdminPage() {
       setLogado(true)
       const rc = await fetch('/api/admin', { headers: { 'x-admin-senha': senha } })
       const dc = await rc.json()
-      if (rc.ok) setCentralState(dc.barberia_state)
+      if (rc.ok) {
+        setCentralState(dc.barberia_state)
+        setCentralNumero(dc.barberia_numero)
+        setBarbeirosTotal(dc.barbeiros_total || 0)
+      }
     }
   }
 
@@ -150,26 +159,54 @@ export default function AdminPage() {
     carregar()
   }
 
-  const gerarQrCentral = async () => {
+  const recarregarCentral = async () => {
+    const rc = await fetch('/api/admin', { headers: { 'x-admin-senha': senhaRef.current } })
+    const dc = await rc.json()
+    if (rc.ok) {
+      setCentralState(dc.barberia_state)
+      setCentralNumero(dc.barberia_numero)
+      setBarbeirosTotal(dc.barbeiros_total || 0)
+    }
+  }
+
+  const gerarQrCentral = async (numero?: string) => {
     setGerandoQr(true)
     setQr(null)
+    setPairingCentral(null)
     const r = await fetch('/api/admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-senha': senhaRef.current },
-      body: JSON.stringify({ acao: 'qr-barberia' }),
+      body: JSON.stringify({ acao: 'qr-barberia', numero }),
     })
     const d = await r.json()
     setGerandoQr(false)
     if (!r.ok) {
-      setErro(d.error || 'Erro ao gerar QR')
+      setErro(d.error || 'Erro ao gerar conexão')
       return
     }
-    if (d.state === 'open' && !d.qr) {
+    setErro('')
+    if (d.state === 'open' && !d.qr && !d.pairing) {
       setCentralState('open')
-      setErro('')
+      recarregarCentral()
       return
     }
-    setQr(d.qr)
+    setQr(numero ? null : d.qr)
+    setPairingCentral(d.pairing || null)
+    // poll até conectar
+    const intervalo = setInterval(async () => {
+      const rc = await fetch('/api/admin', { headers: { 'x-admin-senha': senhaRef.current } })
+      const dc = await rc.json()
+      if (rc.ok && dc.barberia_state === 'open') {
+        clearInterval(intervalo)
+        setQr(null)
+        setPairingCentral(null)
+        setModoCodigoCentral(false)
+        setCentralState('open')
+        setCentralNumero(dc.barberia_numero)
+        setBarbeirosTotal(dc.barbeiros_total || 0)
+      }
+    }, 3000)
+    setTimeout(() => clearInterval(intervalo), 120000)
   }
 
   const exportarCSV = () => {
@@ -462,21 +499,68 @@ export default function AdminPage() {
         {aba === 'central' && (
           <div className="bg-gray-900 rounded-2xl p-6 max-w-xl space-y-4">
             <p className="font-semibold">📱 Número central do BarberIA (canal do barbeiro)</p>
-            <p className="text-gray-400 text-sm">Estado: {centralState === 'open' ? '🟢 conectado' : `🔴 ${centralState || '...'}`}</p>
-            <button
-              onClick={gerarQrCentral}
-              disabled={gerandoQr}
-              className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-xl px-4 py-3 font-medium w-full"
-            >
-              {gerandoQr ? 'Gerando...' : '🔄 Reconectar / Novo número'}
-            </button>
-            {qr && (
+            <div className="bg-gray-800 rounded-xl p-4 space-y-1 text-sm">
+              <p>Estado: {centralState === 'open' ? '🟢 conectado' : `🔴 ${centralState || '...'}`}</p>
+              {centralNumero && <p className="text-gray-400">Número atual: <span className="font-mono text-amber-400">{centralNumero}</span></p>}
+              <p className="text-green-300">🔒 {barbeirosTotal} barbeiro(s) e todas as barbearias/clientes protegidos no banco de dados.</p>
+            </div>
+
+            <div className="bg-green-900/20 border border-green-800/50 rounded-xl p-4 text-sm text-green-200">
+              ✅ <b>Trocar o número NÃO apaga nada.</b> Os barbeiros são reconhecidos pelo telefone deles, não por este número. Você pode colocar um número novo (perdeu o chip, trocou de aparelho) que todos os barbeiros, barbearias e clientes continuam no mesmo banco de dados.
+            </div>
+
+            {qr && !modoCodigoCentral && (
               <div className="text-center space-y-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qr} alt="QR BarberIA" className="mx-auto rounded-xl bg-white p-3 w-64 h-64 object-contain" />
-                <p className="text-gray-400 text-sm">Escaneie com o número central. Vínculos e dados são preservados.</p>
+                <p className="text-gray-400 text-sm">Escaneie com o WhatsApp do número que será o BarberIA.</p>
               </div>
             )}
+            {pairingCentral && modoCodigoCentral && (
+              <div className="space-y-3 bg-gray-800 rounded-xl p-5 text-center">
+                <p className="text-gray-200 font-medium">Digite este código no WhatsApp:</p>
+                <p className="font-mono text-4xl font-bold tracking-widest text-amber-400">
+                  {pairingCentral.slice(0, 4)}-{pairingCentral.slice(4)}
+                </p>
+                <p className="text-gray-400 text-sm text-left leading-relaxed">
+                  No celular do número: WhatsApp → <b>Configurações</b> → <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> → <b>&quot;Conectar com número de telefone&quot;</b> → digite o código.
+                </p>
+              </div>
+            )}
+
+            {!modoCodigoCentral && (
+              <button
+                onClick={() => gerarQrCentral()}
+                disabled={gerandoQr}
+                className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-xl px-4 py-3 font-medium w-full"
+              >
+                {gerandoQr ? 'Gerando...' : qr ? '🔄 Gerar novo QR Code' : '📲 Colocar / trocar número (QR Code)'}
+              </button>
+            )}
+
+            <div className="bg-gray-800/60 rounded-xl p-4 space-y-3">
+              <button onClick={() => { setModoCodigoCentral(!modoCodigoCentral); setQr(null); setPairingCentral(null) }} className="text-amber-500 hover:underline text-sm">
+                {modoCodigoCentral ? '← Voltar para o QR Code' : '📞 Conectar com código (iPhone / mais fácil)'}
+              </button>
+              {modoCodigoCentral && (
+                <div className="space-y-2">
+                  <input
+                    value={numeroCentralNovo}
+                    onChange={e => setNumeroCentralNovo(e.target.value)}
+                    placeholder="Número novo com DDD (ex.: 11 99999-8888)"
+                    inputMode="tel"
+                    className="w-full bg-gray-900 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    onClick={() => numeroCentralNovo.trim() && gerarQrCentral(numeroCentralNovo)}
+                    disabled={gerandoQr || !numeroCentralNovo.trim()}
+                    className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-xl py-3 font-semibold"
+                  >
+                    {gerandoQr ? 'Gerando código...' : '🔢 Gerar código de 8 dígitos'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
