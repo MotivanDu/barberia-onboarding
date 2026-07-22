@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     .single()
   if (!tenant) return NextResponse.json({ error: 'Barbearia não encontrada' }, { status: 404 })
 
-  const [{ data: servicos }, { data: horarios }, { data: barbeiros }] = await Promise.all([
+  const [{ data: servicos }, { data: horarios }, { data: barbeiros }, clientesCount] = await Promise.all([
     supabaseAdmin
       .from('servicos')
       .select('id, nome, preco, duracao_minutos, categoria, ativo')
@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
       .select('id, nome, telefone')
       .eq('tenant_id', tenant.id)
       .eq('ativo', true),
+    supabaseAdmin.from('clientes').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
   ])
 
   let whatsappState = 'inexistente'
@@ -51,6 +52,7 @@ export async function GET(req: NextRequest) {
       endereco: tenant.endereco,
     },
     whatsapp: { instancia: tenant.evolution_instance, state: whatsappState, numero: whatsappNumero },
+    clientes_total: clientesCount.count || 0,
     servicos: servicos || [],
     horarios: horarios || [],
     barbeiros: barbeiros || [],

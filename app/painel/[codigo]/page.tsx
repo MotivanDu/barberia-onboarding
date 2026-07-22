@@ -31,6 +31,7 @@ export default function PainelPage() {
   const [pairing, setPairing] = useState<string | null>(null)
   const [modoCodigo, setModoCodigo] = useState(false)
   const [numeroPareamento, setNumeroPareamento] = useState('')
+  const [clientesTotal, setClientesTotal] = useState(0)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -45,6 +46,7 @@ export default function PainelPage() {
       setNome(d.tenant.nome_barbearia)
       setSistemaAtivo(d.tenant.sistema_ativo)
       setWhats(d.whatsapp)
+      setClientesTotal(d.clientes_total || 0)
       setServicos(d.servicos)
       const grade: Horario[] = DIAS.map((_, dia) => {
         const h = (d.horarios || []).find((x: any) => x.dia_semana === dia)
@@ -373,17 +375,20 @@ export default function PainelPage() {
                 )}
               </div>
             )}
-            <button
-              onClick={() => conectarWhats('novo-numero')}
-              disabled={gerandoQr}
-              className="w-full bg-gray-800 hover:bg-gray-700 disabled:opacity-50 rounded-xl py-3 font-medium"
-            >
-              📱 Mudei de número
-            </button>
-            <p className="text-gray-500 text-xs">
-              Seus clientes, agendamentos e relatórios ficam sempre salvos — trocar de número não
-              perde nada.
-            </p>
+            <div className="border-t border-gray-800 pt-4 mt-2 space-y-3">
+              <div className="bg-green-900/20 border border-green-800/50 rounded-xl p-4 text-sm text-green-200 text-left">
+                🔒 <b>{clientesTotal} cliente(s) protegido(s) no banco de dados.</b><br />
+                Perdeu o chip ou trocou de número? É só colocar o número novo — seus clientes,
+                agendamentos, histórico e relatórios continuam TODOS salvos. Nada é perdido.
+              </div>
+              <button
+                onClick={() => conectarWhats('novo-numero')}
+                disabled={gerandoQr}
+                className="w-full bg-amber-700 hover:bg-amber-600 disabled:opacity-50 rounded-xl py-3 font-semibold"
+              >
+                📱 Mudei de número (colocar outro)
+              </button>
+            </div>
           </div>
         )}
       </div>
