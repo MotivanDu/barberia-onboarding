@@ -65,6 +65,30 @@ type Dash = {
   clientes: Cliente[]
 }
 
+type Insight = { nivel: 'alerta' | 'atencao' | 'dica' | 'bom'; titulo: string; detalhe: string }
+type DashBarbearia = {
+  tenant: {
+    nome_barbearia: string
+    codigo: string
+    status_assinatura: string
+    sistema_ativo: boolean
+    bloqueado_pagamento: boolean
+    criado_em: string
+    whatsapp_state: string
+    plano: { nome: string; valor_cobranca: number; duracao_meses: number } | null
+    barbeiro: { nome: string; telefone: string } | null
+    cpf_cnpj: string | null
+  }
+  kpis: Record<string, number>
+  series: {
+    clientes: { mes: string; qtd: number }[]
+    agendamentos: { mes: string; qtd: number }[]
+    faturamento: { mes: string; valor: number }[]
+  }
+  ranking_servicos: { nome: string; qtd: number }[]
+  insights: Insight[]
+}
+
 const brl = (v: number) =>
   (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
@@ -105,6 +129,7 @@ export default function AdminPage() {
   const [modoCodigoCentral, setModoCodigoCentral] = useState(false)
   const [numeroCentralNovo, setNumeroCentralNovo] = useState('')
   const [salvandoPlano, setSalvandoPlano] = useState(false)
+  const [detalheCodigo, setDetalheCodigo] = useState<string | null>(null)
   const senhaRef = useRef('')
 
   const carregar = useCallback(async (s?: string) => {
@@ -435,9 +460,17 @@ export default function AdminPage() {
                       contrato: {b.meses_restantes} meses restantes ({brl(parseFloat(String(b.plano.preco_mensal)) * b.meses_restantes)} a receber)
                     </span>
                   )}
-                  <a href={`/painel/${b.codigo}`} className="text-amber-500 hover:underline ml-auto">
-                    painel →
-                  </a>
+                  <div className="ml-auto flex items-center gap-3">
+                    <button
+                      onClick={() => setDetalheCodigo(b.codigo)}
+                      className="bg-amber-600 hover:bg-amber-500 rounded-lg px-3 py-2 font-medium"
+                    >
+                      📊 Dashboard completo
+                    </button>
+                    <a href={`/painel/${b.codigo}`} className="text-amber-500 hover:underline">
+                      painel →
+                    </a>
+                  </div>
                 </div>
               </div>
             ))}
@@ -560,6 +593,211 @@ export default function AdminPage() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {detalheCodigo && (
+        <DashboardBarbearia key={detalheCodigo} codigo={detalheCodigo} senha={senha} onClose={() => setDetalheCodigo(null)} />
+      )}
+    </div>
+  )
+}
+
+const ESTILO_INSIGHT: Record<Insight['nivel'], { cls: string; icone: string }> = {
+  alerta: { cls: 'bg-red-900/25 border-red-700/60', icone: '🔴' },
+  atencao: { cls: 'bg-amber-900/25 border-amber-700/60', icone: '🟠' },
+  dica: { cls: 'bg-blue-900/25 border-blue-700/60', icone: '💡' },
+  bom: { cls: 'bg-green-900/25 border-green-700/60', icone: '✅' },
+}
+
+function MiniCard({ titulo, valor, sub, cor }: { titulo: string; valor: string; sub?: string; cor?: string }) {
+  return (
+    <div className="bg-gray-800 rounded-xl p-3">
+      <p className="text-[11px] text-gray-400 leading-tight">{titulo}</p>
+      <p className={`text-xl font-bold mt-1 ${cor || ''}`}>{valor}</p>
+      {sub && <p className="text-[11px] text-gray-500 mt-0.5">{sub}</p>}
+    </div>
+  )
+}
+
+function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha: string; onClose: () => void }) {
+  const [d, setD] = useState<DashBarbearia | null>(null)
+  const [erro, setErro] = useState('')
+
+  useEffect(() => {
+    let vivo = true
+    fetch(`/api/admin/barbearia?codigo=${encodeURIComponent(codigo)}`, { headers: { 'x-admin-senha': senha } })
+      .then(r => r.json().then(j => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => {
+        if (!vivo) return
+        if (!ok) setErro(j.error || 'Erro ao carregar')
+        else setD(j)
+      })
+      .catch(() => vivo && setErro('Falha de conexão'))
+    return () => { vivo = false }
+  }, [codigo, senha])
+
+  const k = d?.kpis || {}
+  const t = d?.tenant
+  const wsOk = t?.whatsapp_state === 'open'
+  const precisaMelhorar = (d?.insights || []).filter(i => i.nivel !== 'bom')
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-start md:items-center justify-center p-2 md:p-6 overflow-y-auto" onClick={onClose}>
+      <div className="bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-5xl my-4" onClick={e => e.stopPropagation()}>
+        {/* cabeçalho */}
+        <div className="flex items-start justify-between gap-3 p-5 border-b border-gray-800 sticky top-0 bg-gray-950 rounded-t-2xl z-10">
+          <div>
+            <h2 className="text-xl font-bold">
+              {wsOk ? '🟢' : '🔴'} {t?.nome_barbearia || codigo}
+            </h2>
+            <p className="text-sm text-gray-400 font-mono">
+              {codigo}
+              {t && ` · desde ${new Date(t.criado_em).toLocaleDateString('pt-BR')}`}
+              {t?.barbeiro && ` · ${t.barbeiro.nome}`}
+            </p>
+          </div>
+          <button onClick={onClose} className="bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-1.5 text-sm shrink-0">✕ fechar</button>
+        </div>
+
+        {erro && <div className="m-5 bg-red-900/40 border border-red-700 rounded-xl p-3 text-sm">{erro}</div>}
+        {!d && !erro && <div className="p-10 text-center text-gray-400">Carregando dashboard...</div>}
+
+        {d && (
+          <div className="p-5 space-y-6">
+            {/* status geral */}
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className={`rounded-full px-3 py-1 ${wsOk ? 'bg-green-900/40 text-green-300' : 'bg-red-900/40 text-red-300'}`}>
+                WhatsApp: {wsOk ? 'conectado' : t?.whatsapp_state || 'desconhecido'}
+              </span>
+              <span className={`rounded-full px-3 py-1 ${t?.plano ? 'bg-amber-900/40 text-amber-300' : 'bg-gray-800 text-gray-400'}`}>
+                {t?.plano ? `Plano ${t.plano.nome} · ${brl(t.plano.valor_cobranca)}` : 'Sem plano'}
+              </span>
+              <span className={`rounded-full px-3 py-1 ${t?.status_assinatura === 'ativo' ? 'bg-green-900/40 text-green-300' : 'bg-gray-800 text-gray-400'}`}>
+                {t?.status_assinatura}
+              </span>
+              {t?.bloqueado_pagamento && <span className="rounded-full px-3 py-1 bg-red-900/40 text-red-300">💳 pagamento pendente</span>}
+            </div>
+
+            {/* O QUE PODE MELHORAR — em destaque */}
+            <div>
+              <p className="font-semibold mb-2 text-gray-200">🎯 O que pode melhorar</p>
+              {precisaMelhorar.length === 0 ? (
+                <div className="rounded-xl border p-3 text-sm bg-green-900/25 border-green-700/60">
+                  ✅ Tudo certo por aqui. Barbearia conectada, com plano ativo e boa adesão à IA.
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-2">
+                  {precisaMelhorar.map((i, idx) => {
+                    const e = ESTILO_INSIGHT[i.nivel]
+                    return (
+                      <div key={idx} className={`rounded-xl border p-3 ${e.cls}`}>
+                        <p className="font-medium text-sm">{e.icone} {i.titulo}</p>
+                        <p className="text-xs text-gray-300 mt-0.5">{i.detalhe}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* KPIs de clientes / crescimento */}
+            <div>
+              <p className="font-semibold mb-2 text-gray-300">👥 Clientes & crescimento</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <MiniCard titulo="Clientes na base" valor={String(k.clientes_total)} />
+                <MiniCard titulo="Novos (30 dias)" valor={`+${k.clientes_novos_30d}`} cor="text-green-400" />
+                <MiniCard titulo="Fidelizados (2+ visitas)" valor={String(k.clientes_fidelizados)} cor="text-amber-400" />
+                <MiniCard titulo="Inativos (+30 dias)" valor={String(k.clientes_inativos)} cor={k.clientes_inativos > 0 ? 'text-red-400' : ''} sub="oportunidade de resgate" />
+              </div>
+            </div>
+
+            {/* KPIs de agendamentos */}
+            <div>
+              <p className="font-semibold mb-2 text-gray-300">📅 Agendamentos</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <MiniCard titulo="Total" valor={String(k.agendamentos_total)} />
+                <MiniCard titulo="No mês atual" valor={String(k.agendamentos_mes)} />
+                <MiniCard titulo="Futuros (agendados)" valor={String(k.agendamentos_futuros)} cor="text-blue-400" />
+                <MiniCard titulo="Concluídos" valor={String(k.concluidos)} cor="text-green-400" />
+                <MiniCard titulo="Taxa de confirmação" valor={`${k.taxa_confirmacao}%`} />
+                <MiniCard titulo="Taxa de cancelamento" valor={`${k.taxa_cancelamento}%`} cor={k.taxa_cancelamento > 20 ? 'text-red-400' : ''} />
+                <MiniCard titulo="Serviços ativos" valor={String(k.servicos_ativos)} />
+                <MiniCard titulo="Dias de atendimento" valor={`${k.dias_configurados}/7`} />
+              </div>
+            </div>
+
+            {/* KPIs de faturamento / impacto da IA */}
+            <div>
+              <p className="font-semibold mb-2 text-gray-300">💰 Faturamento & impacto da IA</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <MiniCard titulo="Faturamento total" valor={brl(k.gmv_total)} sub="serviços concluídos" />
+                <MiniCard titulo="Gerado pela IA" valor={brl(k.gmv_ia)} cor="text-amber-400" sub={`${k.pct_gmv_ia}% do total`} />
+                <MiniCard titulo="Agendamentos via IA" valor={`${k.pct_ags_ia}%`} cor="text-amber-400" sub="do total de agendamentos" />
+                <MiniCard titulo="Resgates enviados" valor={String(k.resgates_enviados)} sub="convites de retorno" />
+              </div>
+            </div>
+
+            {/* gráficos */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <GraficoBox titulo="📈 Novos clientes por mês">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={d.series.clientes}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
+                    <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Bar dataKey="qtd" fill="#f59e0b" radius={[6, 6, 0, 0]} name="Clientes" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </GraficoBox>
+              <GraficoBox titulo="📅 Agendamentos por mês">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={d.series.agendamentos}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
+                    <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Line type="monotone" dataKey="qtd" stroke="#60a5fa" strokeWidth={2} dot={false} name="Agendamentos" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </GraficoBox>
+              <GraficoBox titulo="💵 Faturamento por mês">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={d.series.faturamento}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
+                    <YAxis stroke="#6b7280" fontSize={11} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => brl(Number(v))} />
+                    <Bar dataKey="valor" fill="#10b981" radius={[6, 6, 0, 0]} name="Faturamento" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </GraficoBox>
+              <div className="bg-gray-900 rounded-2xl p-4">
+                <p className="font-medium mb-3 text-gray-300">🏆 Serviços mais pedidos</p>
+                {d.ranking_servicos.length === 0 ? (
+                  <p className="text-gray-500 text-sm">Nenhum serviço concluído ainda.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {d.ranking_servicos.map((s, i) => {
+                      const max = d.ranking_servicos[0].qtd || 1
+                      return (
+                        <div key={i}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-300">{i + 1}. {s.nome}</span>
+                            <span className="text-gray-400">{s.qtd}x</span>
+                          </div>
+                          <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.round((100 * s.qtd) / max)}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
