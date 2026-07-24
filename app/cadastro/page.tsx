@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 
 const DIAS = [
@@ -23,15 +23,34 @@ const CATEGORIAS = [
 type Servico = { nome: string; preco: string; duracao_minutos: string; categoria: string }
 type Horario = { dia_semana: number; hora_inicio: string; hora_fim: string; ativo: boolean }
 
+type Resultado = {
+  codigo: string
+  link: string
+  qrcode: string
+  payment_link: string | null
+  panelLink: string
+  plano: { nome: string; valor: number; anual: boolean; metodos: string }
+}
+
+const brl = (v: number) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+
 export default function CadastroPage() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [resultado, setResultado] = useState<{ codigo: string; link: string; qrcode: string } | null>(null)
+  const [resultado, setResultado] = useState<Resultado | null>(null)
   const [erro, setErro] = useState('')
 
   const [nomeBarbearia, setNomeBarbearia] = useState('')
   const [nomeBarbeiro, setNomeBarbeiro] = useState('')
   const [telefoneBarbeiro, setTelefoneBarbeiro] = useState('')
+  const [cpfCnpj, setCpfCnpj] = useState('')
+  const [plano, setPlano] = useState<'mensal' | 'anual'>('anual')
+
+  // pré-seleciona o plano que veio da landing (?plano=mensal|anual)
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get('plano')
+    if (p === 'mensal' || p === 'anual') setPlano(p)
+  }, [])
 
   const [servicos, setServicos] = useState<Servico[]>([
     { nome: 'Corte', preco: '', duracao_minutos: '30', categoria: 'corte' },
@@ -87,6 +106,8 @@ export default function CadastroPage() {
           nome_barbearia: nomeBarbearia,
           nome_barbeiro: nomeBarbeiro,
           telefone_barbeiro: telefoneBarbeiro,
+          cpf_cnpj: cpfCnpj,
+          plano,
           servicos,
           horarios: horariosAtivos,
         }),
@@ -96,7 +117,14 @@ export default function CadastroPage() {
       if (!res.ok) throw new Error(data.error)
 
       const qr = await QRCode.toDataURL(data.link, { width: 300, margin: 2 })
-      setResultado({ codigo: data.codigo, link: data.link, qrcode: qr })
+      setResultado({
+        codigo: data.codigo,
+        link: data.link,
+        qrcode: qr,
+        payment_link: data.payment_link || null,
+        panelLink: `${window.location.origin}/painel/${data.codigo}`,
+        plano: data.plano,
+      })
       setStep(4)
     } catch (e: any) {
       setErro(e.message || 'Erro ao cadastrar')
@@ -160,10 +188,53 @@ export default function CadastroPage() {
               />
               <p className="text-xs text-gray-500 mt-1">Você receberá os agendamentos neste número</p>
             </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">CPF ou CNPJ *</label>
+              <input
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
+                placeholder="Somente números"
+                inputMode="numeric"
+                value={cpfCnpj}
+                onChange={e => setCpfCnpj(e.target.value)}
+              />
+              <p className="text-xs text-gray-500 mt-1">Usado para emitir a cobrança da assinatura</p>
+            </div>
+
+            {/* Plano */}
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Escolha o plano *</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPlano('mensal')}
+                  className={`text-left rounded-xl p-4 border-2 transition ${plano === 'mensal' ? 'border-green-500 bg-green-500/10' : 'border-gray-700 bg-gray-800'}`}
+                >
+                  <p className="text-sm text-gray-400">Mensal</p>
+                  <p className="text-xl font-bold">R$ 100<span className="text-sm font-normal text-gray-400">/mês</span></p>
+                  <p className="text-xs text-gray-500 mt-1">💳 Cartão de crédito</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlano('anual')}
+                  className={`relative text-left rounded-xl p-4 border-2 transition ${plano === 'anual' ? 'border-amber-500 bg-amber-500/10' : 'border-gray-700 bg-gray-800'}`}
+                >
+                  <span className="absolute -top-2 right-2 bg-amber-500 text-gray-950 text-[10px] font-bold rounded-full px-2 py-0.5">17% OFF</span>
+                  <p className="text-sm text-amber-400">Anual</p>
+                  <p className="text-xl font-bold">R$ 1.000<span className="text-sm font-normal text-gray-400">/ano</span></p>
+                  <p className="text-xs text-gray-500 mt-1">💠 Pix ou cartão</p>
+                </button>
+              </div>
+            </div>
+
             <button
               onClick={() => {
+                const cpf = cpfCnpj.replace(/\D/g, '')
                 if (!nomeBarbearia || !nomeBarbeiro || !telefoneBarbeiro) {
                   setErro('Preencha todos os campos obrigatórios')
+                  return
+                }
+                if (cpf.length !== 11 && cpf.length !== 14) {
+                  setErro('Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido')
                   return
                 }
                 setErro('')
@@ -299,59 +370,65 @@ export default function CadastroPage() {
                 disabled={loading}
                 className="flex-1 bg-green-500 hover:bg-green-600 font-semibold py-3 rounded-lg transition disabled:opacity-50"
               >
-                {loading ? 'Cadastrando...' : 'Finalizar Cadastro ✓'}
+                {loading ? 'Gerando pagamento...' : 'Ir para o pagamento →'}
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 4 — Sucesso */}
+        {/* STEP 4 — Checkout (pagamento obrigatório para ativar) */}
         {step === 4 && resultado && (
-          <div className="bg-gray-900 rounded-2xl p-6 space-y-6 text-center">
-            <div className="text-5xl">🎉</div>
+          <div className="bg-gray-900 rounded-2xl p-6 space-y-5 text-center">
+            <div className="text-5xl">💈</div>
             <div>
-              <h2 className="text-2xl font-bold text-green-400 mb-1">Barbearia cadastrada!</h2>
-              <p className="text-gray-400">Seu link exclusivo está pronto para divulgar</p>
+              <h2 className="text-2xl font-bold text-white mb-1">Falta só o pagamento</h2>
+              <p className="text-gray-400">Sua barbearia foi criada, mas só ativa depois que o pagamento cair.</p>
             </div>
 
-            {/* Código */}
+            {/* Resumo do plano */}
             <div className="bg-gray-800 rounded-xl p-4">
-              <p className="text-xs text-gray-400 mb-1">Seu código exclusivo</p>
-              <p className="text-3xl font-bold tracking-widest text-green-400">{resultado.codigo}</p>
+              <p className="text-xs text-gray-400">Plano escolhido</p>
+              <p className="text-xl font-bold mt-1">
+                {resultado.plano.nome} · {brl(resultado.plano.valor)}
+                <span className="text-sm font-normal text-gray-400">{resultado.plano.anual ? '/ano' : '/mês'}</span>
+              </p>
+              <p className="text-xs text-gray-500 mt-1">{resultado.plano.metodos}</p>
             </div>
 
-            {/* Link */}
-            <div className="bg-gray-800 rounded-xl p-4">
-              <p className="text-xs text-gray-400 mb-2">Link para divulgar</p>
-              <p className="text-sm text-green-400 break-all font-mono">{resultado.link}</p>
-              <button
-                onClick={() => navigator.clipboard.writeText(resultado.link)}
-                className="mt-3 bg-green-500 hover:bg-green-600 text-white text-sm px-6 py-2 rounded-lg transition"
+            {/* Botão de pagamento */}
+            {resultado.payment_link ? (
+              <a
+                href={resultado.payment_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block bg-green-500 hover:bg-green-600 text-white font-bold text-lg py-4 rounded-xl transition"
               >
-                Copiar link
+                💳 Pagar e ativar agora
+              </a>
+            ) : (
+              <div className="bg-amber-900/30 border border-amber-700 rounded-xl p-4 text-sm text-amber-200">
+                Não foi possível gerar o link de pagamento agora. Guarde seu código e fale com o suporte para concluir.
+              </div>
+            )}
+
+            {/* Código de acesso */}
+            <div className="bg-gray-800 rounded-xl p-4">
+              <p className="text-xs text-gray-400 mb-1">Seu código de acesso ao painel (guarde!)</p>
+              <p className="text-3xl font-bold tracking-widest text-amber-400">{resultado.codigo}</p>
+              <button
+                onClick={() => navigator.clipboard.writeText(resultado.panelLink)}
+                className="mt-3 bg-gray-700 hover:bg-gray-600 text-white text-sm px-6 py-2 rounded-lg transition"
+              >
+                Copiar link do painel
               </button>
             </div>
 
-            {/* QR Code */}
-            <div className="bg-gray-800 rounded-xl p-4">
-              <p className="text-xs text-gray-400 mb-3">QR Code exclusivo</p>
-              <img src={resultado.qrcode} alt="QR Code" className="mx-auto rounded-lg" style={{ width: 200 }} />
-              <a
-                href={resultado.qrcode}
-                download={`qrcode-${resultado.codigo}.png`}
-                className="mt-3 inline-block bg-gray-700 hover:bg-gray-600 text-white text-sm px-6 py-2 rounded-lg transition"
-              >
-                Baixar QR Code
-              </a>
-            </div>
-
             <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-4 text-left">
-              <p className="text-sm text-blue-300 font-semibold mb-2">📱 Como divulgar</p>
+              <p className="text-sm text-blue-300 font-semibold mb-2">✅ O que acontece depois de pagar</p>
               <ul className="text-sm text-gray-400 space-y-1">
-                <li>• Coloque o QR Code na sua barbearia</li>
-                <li>• Compartilhe o link nas redes sociais</li>
-                <li>• Envie para seus clientes pelo WhatsApp</li>
-                <li>• Quando o cliente clicar, o agendamento começa automaticamente</li>
+                <li>• A IA da sua barbearia é ativada na hora</li>
+                <li>• Você recebe a confirmação no seu WhatsApp</li>
+                <li>• Entre no painel com o seu código para conectar o WhatsApp e divulgar</li>
               </ul>
             </div>
           </div>

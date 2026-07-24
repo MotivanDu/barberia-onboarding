@@ -295,8 +295,8 @@ export default function Home() {
               <div className="mt-3 inline-block bg-gray-800 rounded-full px-3 py-1 text-xs text-gray-300">
                 💳 No cartão de crédito
               </div>
-              <Link href="/cadastro" className="mt-6 block text-center bg-gray-800 hover:bg-gray-700 rounded-xl py-3 font-semibold">
-                Começar no mensal
+              <Link href="/cadastro?plano=mensal" className="mt-6 block text-center bg-gray-800 hover:bg-gray-700 rounded-xl py-3 font-semibold">
+                Assinar o mensal
               </Link>
             </div>
 
@@ -318,7 +318,7 @@ export default function Home() {
               <div className="mt-3 inline-block bg-emerald-900/40 text-emerald-300 rounded-full px-3 py-1 text-xs">
                 💠 No Pix ou no cartão
               </div>
-              <Link href="/cadastro" className="mt-6 block text-center bg-amber-600 hover:bg-amber-500 rounded-xl py-3 font-semibold">
+              <Link href="/cadastro?plano=anual" className="mt-6 block text-center bg-amber-600 hover:bg-amber-500 rounded-xl py-3 font-semibold">
                 Quero o anual (17% OFF)
               </Link>
             </div>
