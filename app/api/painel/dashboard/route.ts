@@ -1,0 +1,166 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
+
+function chaveMes(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+function rotuloMes(k: string) {
+  const [, m] = k.split('-')
+  return ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][parseInt(m) - 1] || k
+}
+function inicioPeriodo(p: string | null): Date | null {
+  if (!p) return null
+  try {
+    const s = p.replace('[', '').replace('(', '').split(',')[0].replace(/"/g, '').trim()
+    const d = new Date(s)
+    return isNaN(d.getTime()) ? null : d
+  } catch {
+    return null
+  }
+}
+const DIA_MS = 24 * 60 * 60 * 1000
+
+export async function GET(req: NextRequest) {
+  const codigo = req.nextUrl.searchParams.get('codigo')
+  if (!codigo) return NextResponse.json({ error: 'codigo obrigatório' }, { status: 400 })
+
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('id, nome_barbearia, codigo, criado_em')
+    .eq('codigo', codigo.toUpperCase())
+    .single()
+  if (!tenant) return NextResponse.json({ error: 'Barbearia não encontrada' }, { status: 404 })
+
+  const [{ data: agendamentos }, { data: clientes }, { data: conversas }, { data: barbeiros }] = await Promise.all([
+    supabaseAdmin
+      .from('agendamentos')
+      .select('status, valor_cobrado, origem, periodo, confirmado_em, servico_nome, telefone_cliente')
+      .eq('tenant_id', tenant.id),
+    supabaseAdmin.from('clientes').select('criado_em, telefone').eq('tenant_id', tenant.id),
+    supabaseAdmin.from('conversas_ia').select('telefone, tipo').eq('tenant_id', tenant.id),
+    supabaseAdmin.from('barbeiros').select('nome').eq('tenant_id', tenant.id).eq('ativo', true),
+  ])
+
+  const ags = agendamentos || []
+  const cs = clientes || []
+  const conv = conversas || []
+  const agora = Date.now()
+  const mesAtual = chaveMes(new Date())
+  const seteDias = agora - 7 * DIA_MS
+  const trintaDias = agora - 30 * DIA_MS
+
+  // ---- receita / agendamentos ----
+  let receitaTotal = 0, receitaMes = 0, receitaSemana = 0, receitaIA = 0
+  let concluidos = 0, cancelados = 0, confirmados = 0, futuros = 0
+  let agsMes = 0, agsSemana = 0
+  const captadosIA = new Set<string>()
+  const rankServ: Record<string, number> = {}
+  const receitaPorMes: Record<string, number> = {}
+  const clientesPorMes: Record<string, number> = {}
+
+  // séries de 6 meses
+  const meses: string[] = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date()
+    d.setMonth(d.getMonth() - i)
+    meses.push(chaveMes(d))
+  }
+
+  for (const a of ags) {
+    const ini = inicioPeriodo(a.periodo)
+    const km = ini ? chaveMes(ini) : null
+    const naoCancelado = a.status !== 'cancelado'
+
+    if (a.origem === 'ia' && naoCancelado && a.telefone_cliente) captadosIA.add(a.telefone_cliente)
+    if (a.confirmado_em) confirmados++
+    if (a.status === 'cancelado') cancelados++
+
+    if (naoCancelado && ini && ini.getTime() > agora) futuros++
+    if (km === mesAtual) agsMes++
+    if (ini && ini.getTime() >= seteDias && ini.getTime() <= agora) agsSemana++
+
+    if (a.status === 'concluido') {
+      concluidos++
+      const v = parseFloat(a.valor_cobrado) || 0
+      receitaTotal += v
+      if (a.origem === 'ia') receitaIA += v
+      if (km) receitaPorMes[km] = (receitaPorMes[km] || 0) + v
+      if (km === mesAtual) receitaMes += v
+      if (ini && ini.getTime() >= seteDias && ini.getTime() <= agora) receitaSemana += v
+      if (a.servico_nome) rankServ[a.servico_nome] = (rankServ[a.servico_nome] || 0) + 1
+    }
+  }
+
+  // ---- clientes ----
+  let novosMes = 0, novosSemana = 0
+  for (const c of cs) {
+    const t = new Date(c.criado_em).getTime()
+    const km = chaveMes(new Date(c.criado_em))
+    clientesPorMes[km] = (clientesPorMes[km] || 0) + 1
+    if (km === mesAtual) novosMes++
+    if (t >= seteDias) novosSemana++
+  }
+
+  // pessoas que conversaram com a IA (alcance no WhatsApp)
+  const alcanceIA = new Set(conv.filter(c => (c.tipo || 'cliente') === 'cliente').map(c => c.telefone)).size
+
+  // atendimentos por semana (últimas 8 semanas)
+  const semanas: { label: string; qtd: number; valor: number }[] = []
+  for (let i = 7; i >= 0; i--) {
+    const fim = agora - i * 7 * DIA_MS
+    const ini = fim - 7 * DIA_MS
+    let qtd = 0, valor = 0
+    for (const a of ags) {
+      if (a.status !== 'concluido') continue
+      const p = inicioPeriodo(a.periodo)
+      if (!p) continue
+      const tt = p.getTime()
+      if (tt >= ini && tt < fim) {
+        qtd++
+        valor += parseFloat(a.valor_cobrado) || 0
+      }
+    }
+    const dLabel = new Date(ini)
+    semanas.push({
+      label: `${String(dLabel.getDate()).padStart(2, '0')}/${String(dLabel.getMonth() + 1).padStart(2, '0')}`,
+      qtd,
+      valor: Math.round(valor * 100) / 100,
+    })
+  }
+
+  const totalNaoCancelado = ags.filter(a => a.status !== 'cancelado').length
+  const ticketMedio = concluidos > 0 ? receitaTotal / concluidos : 0
+  const ranking = Object.entries(rankServ).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([nome, qtd]) => ({ nome, qtd }))
+
+  return NextResponse.json({
+    barbearia: tenant.nome_barbearia,
+    barbeiro: (barbeiros || [])[0]?.nome || null,
+    desde: tenant.criado_em,
+    kpis: {
+      receita_total: Math.round(receitaTotal * 100) / 100,
+      receita_mes: Math.round(receitaMes * 100) / 100,
+      receita_semana: Math.round(receitaSemana * 100) / 100,
+      receita_ia: Math.round(receitaIA * 100) / 100,
+      pct_receita_ia: receitaTotal > 0 ? Math.round((100 * receitaIA) / receitaTotal) : 0,
+      ticket_medio: Math.round(ticketMedio * 100) / 100,
+      clientes_total: cs.length,
+      clientes_novos_mes: novosMes,
+      clientes_novos_semana: novosSemana,
+      captados_ia: captadosIA.size,
+      alcance_ia: alcanceIA,
+      agendamentos_total: ags.length,
+      agendamentos_mes: agsMes,
+      agendamentos_semana: agsSemana,
+      agendamentos_futuros: futuros,
+      concluidos,
+      cancelados,
+      taxa_confirmacao: totalNaoCancelado > 0 ? Math.round((100 * confirmados) / totalNaoCancelado) : 0,
+    },
+    series: {
+      receita: meses.map(m => ({ mes: rotuloMes(m), valor: Math.round((receitaPorMes[m] || 0) * 100) / 100 })),
+      clientes: meses.map(m => ({ mes: rotuloMes(m), qtd: clientesPorMes[m] || 0 })),
+      semanas,
+    },
+    ranking_servicos: ranking,
+  })
+}

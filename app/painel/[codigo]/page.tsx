@@ -2,6 +2,17 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts'
 
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 const CATEGORIAS = [
@@ -13,12 +24,47 @@ const CATEGORIAS = [
 
 type Servico = { id?: string; nome: string; preco: number | string; duracao_minutos: number | string; categoria: string; ativo: boolean }
 type Horario = { dia_semana: number; hora_inicio: string; hora_fim: string; ativo: boolean }
+type DashData = {
+  barbearia: string
+  barbeiro: string | null
+  desde: string
+  kpis: Record<string, number>
+  series: {
+    receita: { mes: string; valor: number }[]
+    clientes: { mes: string; qtd: number }[]
+    semanas: { label: string; qtd: number; valor: number }[]
+  }
+  ranking_servicos: { nome: string; qtd: number }[]
+}
+
+const brl = (v: number) =>
+  (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+const tooltipStyle = { backgroundColor: '#111827', border: '1px solid #374151', borderRadius: 12, color: '#fff' }
+
+function Kpi({ titulo, valor, sub, cor, destaque }: { titulo: string; valor: string; sub?: string; cor?: string; destaque?: boolean }) {
+  return (
+    <div className={`rounded-2xl p-4 ${destaque ? 'bg-amber-600' : 'bg-gray-900'}`}>
+      <p className={`text-xs leading-tight ${destaque ? 'text-amber-100' : 'text-gray-400'}`}>{titulo}</p>
+      <p className={`text-2xl font-bold mt-1 ${cor || ''}`}>{valor}</p>
+      {sub && <p className={`text-[11px] mt-0.5 ${destaque ? 'text-amber-100' : 'text-gray-500'}`}>{sub}</p>}
+    </div>
+  )
+}
+
+function ChartBox({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-gray-900 rounded-2xl p-4">
+      <p className="font-medium mb-3 text-gray-300 text-sm">{titulo}</p>
+      <div className="h-52">{children}</div>
+    </div>
+  )
+}
 
 export default function PainelPage() {
   const params = useParams<{ codigo: string }>()
   const codigo = (params?.codigo || '').toString().toUpperCase()
 
-  const [aba, setAba] = useState<'servicos' | 'horarios' | 'whatsapp'>('servicos')
+  const [aba, setAba] = useState<'relatorio' | 'servicos' | 'horarios' | 'whatsapp'>('relatorio')
   const [nome, setNome] = useState('')
   const [sistemaAtivo, setSistemaAtivo] = useState(true)
   const [whats, setWhats] = useState<{ instancia: string | null; state: string; numero?: string | null }>({ instancia: null, state: '...' })
@@ -32,9 +78,15 @@ export default function PainelPage() {
   const [modoCodigo, setModoCodigo] = useState(false)
   const [numeroPareamento, setNumeroPareamento] = useState('')
   const [clientesTotal, setClientesTotal] = useState(0)
+  const [dash, setDash] = useState<DashData | null>(null)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
+    // dashboard carrega em paralelo, sem travar o painel
+    fetch(`/api/painel/dashboard?codigo=${codigo}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => d && setDash(d))
+      .catch(() => {})
     try {
       const r = await fetch(`/api/painel?codigo=${codigo}`)
       const d = await r.json()
@@ -179,9 +231,10 @@ export default function PainelPage() {
           </p>
         </div>
 
-        <div className="flex gap-2 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
           {(
             [
+              ['relatorio', '📊 Painel'],
               ['servicos', '✂️ Serviços'],
               ['horarios', '🗓️ Horários'],
               ['whatsapp', '📱 WhatsApp'],
@@ -190,7 +243,7 @@ export default function PainelPage() {
             <button
               key={k}
               onClick={() => setAba(k)}
-              className={`flex-1 rounded-xl py-3 font-medium ${aba === k ? 'bg-amber-600' : 'bg-gray-900 hover:bg-gray-800'}`}
+              className={`rounded-xl py-3 text-sm font-medium ${aba === k ? 'bg-amber-600' : 'bg-gray-900 hover:bg-gray-800'}`}
             >
               {label}
             </button>
@@ -198,7 +251,130 @@ export default function PainelPage() {
         </div>
 
         {msg && <div className="mb-4 bg-gray-900 rounded-xl p-3 text-center text-sm">{msg}</div>}
-        {carregando && <p className="text-center text-gray-400 py-10">Carregando...</p>}
+        {carregando && aba !== 'relatorio' && <p className="text-center text-gray-400 py-10">Carregando...</p>}
+
+        {aba === 'relatorio' && (
+          !dash ? (
+            <p className="text-center text-gray-400 py-10">Carregando relatório...</p>
+          ) : (
+            <div className="space-y-5">
+              <div className="text-center -mt-2 mb-1">
+                <p className="text-gray-400 text-sm">
+                  {dash.barbeiro ? `Olá, ${dash.barbeiro.split(' ')[0]}! ` : ''}
+                  Aqui está o resultado da sua barbearia com o BarberIA.
+                </p>
+              </div>
+
+              {/* RECEITA */}
+              <div>
+                <p className="font-semibold mb-2 text-gray-300 text-sm">💰 Receita gerada</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <Kpi destaque titulo="Total" valor={brl(dash.kpis.receita_total)} sub={`ticket médio ${brl(dash.kpis.ticket_medio)}`} />
+                  <Kpi titulo="Este mês" valor={brl(dash.kpis.receita_mes)} />
+                  <Kpi titulo="Últimos 7 dias" valor={brl(dash.kpis.receita_semana)} />
+                </div>
+              </div>
+
+              {/* IMPACTO DO BARBERIA */}
+              <div>
+                <p className="font-semibold mb-2 text-gray-300 text-sm">🤖 O BarberIA trabalhando por você</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <Kpi titulo="Clientes que a IA trouxe" valor={String(dash.kpis.captados_ia)} cor="text-amber-400" sub="captados pelo WhatsApp" />
+                  <Kpi titulo="Pessoas atendidas no WhatsApp" valor={String(dash.kpis.alcance_ia)} sub="conversaram com a IA" />
+                  <Kpi titulo="Valor gerado pela IA" valor={brl(dash.kpis.receita_ia)} cor="text-amber-400" sub={`${dash.kpis.pct_receita_ia}% da receita`} />
+                </div>
+              </div>
+
+              {/* CLIENTES */}
+              <div>
+                <p className="font-semibold mb-2 text-gray-300 text-sm">👥 Clientes</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <Kpi titulo="Na base" valor={String(dash.kpis.clientes_total)} />
+                  <Kpi titulo="Novos no mês" valor={`+${dash.kpis.clientes_novos_mes}`} cor="text-green-400" />
+                  <Kpi titulo="Novos na semana" valor={`+${dash.kpis.clientes_novos_semana}`} cor="text-green-400" />
+                </div>
+              </div>
+
+              {/* AGENDAMENTOS */}
+              <div>
+                <p className="font-semibold mb-2 text-gray-300 text-sm">📅 Agendamentos</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <Kpi titulo="Este mês" valor={String(dash.kpis.agendamentos_mes)} />
+                  <Kpi titulo="Esta semana" valor={String(dash.kpis.agendamentos_semana)} />
+                  <Kpi titulo="Próximos (futuros)" valor={String(dash.kpis.agendamentos_futuros)} cor="text-blue-400" />
+                  <Kpi titulo="Concluídos" valor={String(dash.kpis.concluidos)} cor="text-green-400" />
+                  <Kpi titulo="Confirmação" valor={`${dash.kpis.taxa_confirmacao}%`} />
+                  <Kpi titulo="Total histórico" valor={String(dash.kpis.agendamentos_total)} />
+                </div>
+              </div>
+
+              {/* GRÁFICOS */}
+              <ChartBox titulo="💵 Receita por mês">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dash.series.receita}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
+                    <YAxis stroke="#6b7280" fontSize={11} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => brl(Number(v))} />
+                    <Bar dataKey="valor" fill="#10b981" radius={[6, 6, 0, 0]} name="Receita" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartBox>
+
+              <ChartBox titulo="📈 Novos clientes por mês">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dash.series.clientes}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
+                    <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Bar dataKey="qtd" fill="#f59e0b" radius={[6, 6, 0, 0]} name="Clientes" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartBox>
+
+              <ChartBox titulo="🗓️ Atendimentos por semana (últimas 8)">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dash.series.semanas}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <XAxis dataKey="label" stroke="#6b7280" fontSize={11} />
+                    <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Line type="monotone" dataKey="qtd" stroke="#60a5fa" strokeWidth={2} dot={{ r: 3 }} name="Atendimentos" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartBox>
+
+              <div className="bg-gray-900 rounded-2xl p-4">
+                <p className="font-medium mb-3 text-gray-300 text-sm">🏆 Serviços mais pedidos</p>
+                {dash.ranking_servicos.length === 0 ? (
+                  <p className="text-gray-500 text-sm">Ainda não há serviços concluídos.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dash.ranking_servicos.map((s, i) => {
+                      const max = dash.ranking_servicos[0].qtd || 1
+                      return (
+                        <div key={i}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-300">{i + 1}. {s.nome}</span>
+                            <span className="text-gray-400">{s.qtd}x</span>
+                          </div>
+                          <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.round((100 * s.qtd) / max)}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <p className="text-gray-500 text-xs text-center">
+                Atualiza automaticamente conforme os atendimentos acontecem.
+              </p>
+            </div>
+          )
+        )}
 
         {!carregando && aba === 'servicos' && (
           <div className="space-y-4">
