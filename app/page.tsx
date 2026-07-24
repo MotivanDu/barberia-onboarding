@@ -90,7 +90,7 @@ export default function Home() {
             <Link href="/login" className="hover:text-white">Entrar</Link>
           </nav>
           <Link href="/cadastro" className="bg-amber-600 hover:bg-amber-500 rounded-xl px-4 py-2 text-sm font-semibold">
-            Testar agora
+            Assinar
           </Link>
         </div>
       </header>
