@@ -22,6 +22,17 @@ function inicioPeriodo(p: string | null): Date | null {
 }
 const DIA_MS = 24 * 60 * 60 * 1000
 
+// ciclo natural do serviço: barba/combo ~15 dias, corte/outros ~30 dias
+function cicloDias(cat: string | null | undefined) {
+  return cat === 'barba' || cat === 'combo' ? 15 : 30
+}
+function catPorNome(nome: string | null): string {
+  const n = (nome || '').toLowerCase()
+  if (n.includes('combo')) return 'combo'
+  if (n.includes('barba')) return 'barba'
+  return 'corte'
+}
+
 export async function GET(req: NextRequest) {
   const senha = req.headers.get('x-admin-senha')
   if (!autorizado(senha)) return NextResponse.json({ error: 'Senha inválida' }, { status: 401 })
@@ -39,8 +50,8 @@ export async function GET(req: NextRequest) {
   const [{ data: clientes }, { data: agendamentos }, { data: servicos }, { data: horarios }, { data: mensagens }, { data: barbeiros }, plano] =
     await Promise.all([
       supabaseAdmin.from('clientes').select('id, nome, telefone, criado_em, ultima_conversa_em, ultimo_atendimento_em').eq('tenant_id', tenant.id),
-      supabaseAdmin.from('agendamentos').select('status, valor_cobrado, origem, periodo, confirmado_em, criado_em, servico_nome, telefone_cliente').eq('tenant_id', tenant.id),
-      supabaseAdmin.from('servicos').select('nome, preco, ativo').eq('tenant_id', tenant.id),
+      supabaseAdmin.from('agendamentos').select('status, valor_cobrado, origem, periodo, confirmado_em, criado_em, servico_nome, servico_id, telefone_cliente').eq('tenant_id', tenant.id),
+      supabaseAdmin.from('servicos').select('id, nome, preco, ativo, categoria').eq('tenant_id', tenant.id),
       supabaseAdmin.from('horarios_funcionamento').select('dia_semana').eq('tenant_id', tenant.id),
       supabaseAdmin.from('mensagens').select('tipo, enviado_em').eq('tenant_id', tenant.id),
       supabaseAdmin.from('barbeiros').select('nome, telefone').eq('tenant_id', tenant.id).eq('ativo', true),
@@ -50,6 +61,8 @@ export async function GET(req: NextRequest) {
   const cs = clientes || []
   const ags = agendamentos || []
   const sv = (servicos || []).filter(s => s.ativo)
+  const catPorServico: Record<string, string> = {}
+  for (const s of servicos || []) catPorServico[s.id] = s.categoria
   const diasConfig = new Set((horarios || []).map(h => h.dia_semana)).size
   const msgs = mensagens || []
   const agora = Date.now()
@@ -78,12 +91,17 @@ export async function GET(req: NextRequest) {
   const fatMes: Record<string, number> = {}
   let gmvTotal = 0, gmvIA = 0, concluidos = 0, cancelados = 0, agendadosFuturos = 0, confirmados = 0
   const rankServ: Record<string, number> = {}
+  const porCliente: Record<string, { t: number; origem: string; cat: string }[]> = {}
   let agsMesAtual = 0
   for (const a of ags) {
     const ini = inicioPeriodo(a.periodo)
     const km = ini ? chaveMes(ini) : null
     if (km) agsMes[km] = (agsMes[km] || 0) + 1
     if (km === mesAtual) agsMesAtual++
+    if (a.status !== 'cancelado' && ini && a.telefone_cliente) {
+      const cat = (a.servico_id && catPorServico[a.servico_id]) || catPorNome(a.servico_nome)
+      ;(porCliente[a.telefone_cliente] ||= []).push({ t: ini.getTime(), origem: a.origem, cat })
+    }
     if (a.status === 'cancelado') cancelados++
     else if (a.status === 'concluido') {
       concluidos++
@@ -96,6 +114,21 @@ export async function GET(req: NextRequest) {
       if (ini && ini.getTime() > agora) agendadosFuturos++
     }
     if (a.confirmado_em) confirmados++
+  }
+
+  // novos captados pela IA x resgatados (voltou pela IA além do ciclo: barba 15d, corte 30d)
+  let novosIA = 0
+  let resgatadosIA = 0
+  for (const tel in porCliente) {
+    const evs = porCliente[tel].sort((a, b) => a.t - b.t)
+    if (evs[0].origem === 'ia') novosIA++
+    for (let i = 1; i < evs.length; i++) {
+      const gap = evs[i].t - evs[i - 1].t
+      if (evs[i].origem === 'ia' && gap >= cicloDias(evs[i].cat) * DIA_MS) {
+        resgatadosIA++
+        break
+      }
+    }
   }
   const totalNaoCancelado = ags.filter(a => a.status !== 'cancelado').length
   const pctIA = gmvTotal > 0 ? Math.round((100 * gmvIA) / gmvTotal) : 0
@@ -156,6 +189,8 @@ export async function GET(req: NextRequest) {
       clientes_novos_30d: clientesNovos30,
       clientes_inativos: inativos,
       clientes_fidelizados: fidelizados,
+      novos_ia: novosIA,
+      resgatados_ia: resgatadosIA,
       agendamentos_total: ags.length,
       agendamentos_mes: agsMesAtual,
       agendamentos_futuros: agendadosFuturos,

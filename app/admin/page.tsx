@@ -735,6 +735,8 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <MiniCard titulo="Faturamento total" valor={brl(k.gmv_total)} sub="serviços concluídos" />
                 <MiniCard titulo="Gerado pela IA" valor={brl(k.gmv_ia)} cor="text-amber-400" sub={`${k.pct_gmv_ia}% do total`} />
+                <MiniCard titulo="Novos clientes pela IA" valor={String(k.novos_ia)} cor="text-amber-400" sub="1ª vez, via WhatsApp" />
+                <MiniCard titulo="Resgatados pela IA" valor={String(k.resgatados_ia)} cor="text-green-400" sub="sumidos que voltaram (barba 15d/corte 30d)" />
                 <MiniCard titulo="Agendamentos via IA" valor={`${k.pct_ags_ia}%`} cor="text-amber-400" sub="do total de agendamentos" />
                 <MiniCard titulo="Resgates enviados" valor={String(k.resgates_enviados)} sub="convites de retorno" />
               </div>

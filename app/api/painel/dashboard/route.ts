@@ -20,6 +20,18 @@ function inicioPeriodo(p: string | null): Date | null {
 }
 const DIA_MS = 24 * 60 * 60 * 1000
 
+// ciclo natural do serviço: barba/combo ~15 dias, corte/outros ~30 dias.
+// Se o cliente voltou (pela IA) depois de ficar parado além desse ciclo, foi um RESGATE.
+function cicloDias(cat: string | null | undefined) {
+  return cat === 'barba' || cat === 'combo' ? 15 : 30
+}
+function catPorNome(nome: string | null): string {
+  const n = (nome || '').toLowerCase()
+  if (n.includes('combo')) return 'combo'
+  if (n.includes('barba')) return 'barba'
+  return 'corte'
+}
+
 export async function GET(req: NextRequest) {
   const codigo = req.nextUrl.searchParams.get('codigo')
   if (!codigo) return NextResponse.json({ error: 'codigo obrigatório' }, { status: 400 })
@@ -31,15 +43,19 @@ export async function GET(req: NextRequest) {
     .single()
   if (!tenant) return NextResponse.json({ error: 'Barbearia não encontrada' }, { status: 404 })
 
-  const [{ data: agendamentos }, { data: clientes }, { data: conversas }, { data: barbeiros }] = await Promise.all([
+  const [{ data: agendamentos }, { data: clientes }, { data: conversas }, { data: barbeiros }, { data: servicos }] = await Promise.all([
     supabaseAdmin
       .from('agendamentos')
-      .select('status, valor_cobrado, origem, periodo, confirmado_em, servico_nome, telefone_cliente')
+      .select('status, valor_cobrado, origem, periodo, confirmado_em, servico_nome, servico_id, telefone_cliente')
       .eq('tenant_id', tenant.id),
     supabaseAdmin.from('clientes').select('criado_em, telefone').eq('tenant_id', tenant.id),
     supabaseAdmin.from('conversas_ia').select('telefone, tipo').eq('tenant_id', tenant.id),
     supabaseAdmin.from('barbeiros').select('nome').eq('tenant_id', tenant.id).eq('ativo', true),
+    supabaseAdmin.from('servicos').select('id, categoria').eq('tenant_id', tenant.id),
   ])
+
+  const catPorServico: Record<string, string> = {}
+  for (const s of servicos || []) catPorServico[s.id] = s.categoria
 
   const ags = agendamentos || []
   const cs = clientes || []
@@ -54,6 +70,7 @@ export async function GET(req: NextRequest) {
   let concluidos = 0, cancelados = 0, confirmados = 0, futuros = 0
   let agsMes = 0, agsSemana = 0
   const captadosIA = new Set<string>()
+  const porCliente: Record<string, { t: number; origem: string; cat: string }[]> = {}
   const rankServ: Record<string, number> = {}
   const receitaPorMes: Record<string, number> = {}
   const clientesPorMes: Record<string, number> = {}
@@ -72,6 +89,10 @@ export async function GET(req: NextRequest) {
     const naoCancelado = a.status !== 'cancelado'
 
     if (a.origem === 'ia' && naoCancelado && a.telefone_cliente) captadosIA.add(a.telefone_cliente)
+    if (naoCancelado && ini && a.telefone_cliente) {
+      const cat = (a.servico_id && catPorServico[a.servico_id]) || catPorNome(a.servico_nome)
+      ;(porCliente[a.telefone_cliente] ||= []).push({ t: ini.getTime(), origem: a.origem, cat })
+    }
     if (a.confirmado_em) confirmados++
     if (a.status === 'cancelado') cancelados++
 
@@ -128,6 +149,22 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  // novos captados pela IA (1º agendamento veio pela IA) x resgatados
+  // (voltou pela IA depois de ficar parado além do ciclo do serviço: barba 15d, corte 30d)
+  let novosIA = 0
+  let resgatadosIA = 0
+  for (const tel in porCliente) {
+    const evs = porCliente[tel].sort((a, b) => a.t - b.t)
+    if (evs[0].origem === 'ia') novosIA++
+    for (let i = 1; i < evs.length; i++) {
+      const gap = evs[i].t - evs[i - 1].t
+      if (evs[i].origem === 'ia' && gap >= cicloDias(evs[i].cat) * DIA_MS) {
+        resgatadosIA++
+        break
+      }
+    }
+  }
+
   const totalNaoCancelado = ags.filter(a => a.status !== 'cancelado').length
   const ticketMedio = concluidos > 0 ? receitaTotal / concluidos : 0
   const ranking = Object.entries(rankServ).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([nome, qtd]) => ({ nome, qtd }))
@@ -147,6 +184,8 @@ export async function GET(req: NextRequest) {
       clientes_novos_mes: novosMes,
       clientes_novos_semana: novosSemana,
       captados_ia: captadosIA.size,
+      novos_ia: novosIA,
+      resgatados_ia: resgatadosIA,
       alcance_ia: alcanceIA,
       agendamentos_total: ags.length,
       agendamentos_mes: agsMes,

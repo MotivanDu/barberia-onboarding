@@ -278,11 +278,15 @@ export default function PainelPage() {
               {/* IMPACTO DO BARBERIA */}
               <div>
                 <p className="font-semibold mb-2 text-gray-300 text-sm">🤖 O BarberIA trabalhando por você</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <Kpi titulo="Clientes que a IA trouxe" valor={String(dash.kpis.captados_ia)} cor="text-amber-400" sub="captados pelo WhatsApp" />
+                <div className="grid grid-cols-2 gap-2">
+                  <Kpi titulo="Novos clientes pela IA" valor={String(dash.kpis.novos_ia)} cor="text-amber-400" sub="1ª vez, trazidos pelo WhatsApp" />
+                  <Kpi titulo="Clientes resgatados pela IA" valor={String(dash.kpis.resgatados_ia)} cor="text-green-400" sub="estavam sumidos e voltaram" />
                   <Kpi titulo="Pessoas atendidas no WhatsApp" valor={String(dash.kpis.alcance_ia)} sub="conversaram com a IA" />
                   <Kpi titulo="Valor gerado pela IA" valor={brl(dash.kpis.receita_ia)} cor="text-amber-400" sub={`${dash.kpis.pct_receita_ia}% da receita`} />
                 </div>
+                <p className="text-gray-500 text-[11px] mt-1.5 px-1">
+                  Resgate: cliente de barba parado +15 dias ou de corte parado +30 dias que voltou a agendar pela IA.
+                </p>
               </div>
 
               {/* CLIENTES */}
