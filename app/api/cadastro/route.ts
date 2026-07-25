@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import QRCode from 'qrcode'
-import { asaasConfigurado, obterOuCriarCliente, criarAssinatura, linkCobrancaPendente } from '@/lib/asaas'
+import { asaasConfigurado, obterOuCriarCliente, criarAssinatura, criarCobrancaAvulsa, linkCobrancaPendente } from '@/lib/asaas'
 
 function gerarCodigo(nome: string): string {
   const base = nome
@@ -126,25 +126,39 @@ export async function POST(req: NextRequest) {
     const splitWallet = process.env.ASAAS_SPLIT_WALLET_ID
     const splitPct = parseFloat(process.env.ASAAS_SPLIT_PCT || '50')
     const split = splitWallet ? [{ walletId: splitWallet, percentualValue: splitPct }] : undefined
+    const descricao = `BarberIA — plano ${planoEscolhido.nome} (${nome_barbearia})`
 
-    const ass = await criarAssinatura({
-      customerId: cli.id,
-      valor: valorCobranca,
-      billingType: planoEscolhido.billing_type || (anual ? 'UNDEFINED' : 'CREDIT_CARD'),
-      cycle: planoEscolhido.ciclo || (anual ? 'YEARLY' : 'MONTHLY'),
-      split,
-      descricao: `BarberIA — plano ${planoEscolhido.nome} (${nome_barbearia})`,
-      externalReference: codigo,
-    })
-    if (!ass.ok) {
-      return NextResponse.json({ error: `Não foi possível gerar a assinatura: ${ass.erro}`, codigo }, { status: 502 })
+    // ANUAL = cobrança única (Pix à vista ou cartão parcelado).
+    // MENSAL = assinatura recorrente no cartão.
+    let asaasChargeId: string
+    let paymentLink: string | null
+    if (anual) {
+      const cob = await criarCobrancaAvulsa({ customerId: cli.id, valor: valorCobranca, split, descricao, externalReference: codigo })
+      if (!cob.ok) {
+        return NextResponse.json({ error: `Não foi possível gerar a cobrança: ${cob.erro}`, codigo }, { status: 502 })
+      }
+      asaasChargeId = cob.id
+      paymentLink = cob.invoiceUrl
+    } else {
+      const ass = await criarAssinatura({
+        customerId: cli.id,
+        valor: valorCobranca,
+        billingType: planoEscolhido.billing_type || 'CREDIT_CARD',
+        cycle: planoEscolhido.ciclo || 'MONTHLY',
+        split,
+        descricao,
+        externalReference: codigo,
+      })
+      if (!ass.ok) {
+        return NextResponse.json({ error: `Não foi possível gerar a assinatura: ${ass.erro}`, codigo }, { status: 502 })
+      }
+      asaasChargeId = ass.id
+      paymentLink = await linkCobrancaPendente(ass.id)
     }
-
-    const paymentLink = await linkCobrancaPendente(ass.id)
 
     await supabaseAdmin
       .from('tenants')
-      .update({ asaas_customer_id: cli.id, asaas_subscription_id: ass.id, asaas_payment_link: paymentLink })
+      .update({ asaas_customer_id: cli.id, asaas_subscription_id: asaasChargeId, asaas_payment_link: paymentLink })
       .eq('id', tenant.id)
 
     // Sem boas-vindas aqui: o acesso é liberado e avisado no WhatsApp só quando o
@@ -161,7 +175,7 @@ export async function POST(req: NextRequest) {
         nome: planoEscolhido.nome,
         valor: valorCobranca,
         anual,
-        metodos: anual ? 'Pix ou cartão' : 'Cartão de crédito',
+        metodos: anual ? 'Pix à vista ou cartão parcelado' : 'Cartão de crédito',
       },
     })
   } catch (error: any) {

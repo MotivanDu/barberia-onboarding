@@ -221,7 +221,7 @@ export default function CadastroPage() {
                   <span className="absolute -top-2 right-2 bg-amber-500 text-gray-950 text-[10px] font-bold rounded-full px-2 py-0.5">17% OFF</span>
                   <p className="text-sm text-amber-400">Anual</p>
                   <p className="text-xl font-bold">R$ 1.000<span className="text-sm font-normal text-gray-400">/ano</span></p>
-                  <p className="text-xs text-gray-500 mt-1">💠 Pix ou cartão</p>
+                  <p className="text-xs text-gray-500 mt-1">💠 Pix ou cartão 12x</p>
                 </button>
               </div>
             </div>

@@ -88,6 +88,32 @@ export async function criarAssinatura(params: {
   return { ok: true as const, id: r.data.id as string }
 }
 
+// Cobrança ÚNICA (usada no plano anual): o cliente escolhe Pix à vista OU
+// cartão parcelado no checkout (o número de parcelas do cartão vem da config de
+// parcelamento da conta Asaas). Retorna o id e o invoiceUrl (link) direto.
+export async function criarCobrancaAvulsa(params: {
+  customerId: string
+  valor: number
+  descricao: string
+  externalReference: string
+  split?: { walletId: string; percentualValue: number }[]
+}) {
+  const hoje = new Date()
+  const vencimento = new Date(hoje.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const body: Record<string, unknown> = {
+    customer: params.customerId,
+    billingType: 'UNDEFINED',
+    value: params.valor,
+    dueDate: vencimento,
+    description: params.descricao,
+    externalReference: params.externalReference,
+  }
+  if (params.split && params.split.length > 0) body.split = params.split
+  const r = await asaas('/payments', { method: 'POST', body: JSON.stringify(body) })
+  if (!r.ok) return { ok: false as const, erro: erroAsaas(r) }
+  return { ok: true as const, id: r.data.id as string, invoiceUrl: (r.data.invoiceUrl as string) || null }
+}
+
 export async function atualizarValorAssinatura(subscriptionId: string, valor: number) {
   const r = await asaas(`/subscriptions/${subscriptionId}`, {
     method: 'PUT',

@@ -316,7 +316,7 @@ export default function Home() {
               </p>
               <p className="text-gray-500 text-sm mt-1">≈ R$ 2,74 por dia</p>
               <div className="mt-3 inline-block bg-emerald-900/40 text-emerald-300 rounded-full px-3 py-1 text-xs">
-                💠 No Pix ou no cartão
+                💠 Pix à vista ou cartão em até 12x
               </div>
               <Link href="/cadastro?plano=anual" className="mt-6 block text-center bg-amber-600 hover:bg-amber-500 rounded-xl py-3 font-semibold">
                 Quero o anual (17% OFF)
