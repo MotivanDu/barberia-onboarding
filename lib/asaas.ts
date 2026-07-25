@@ -88,9 +88,9 @@ export async function criarAssinatura(params: {
   return { ok: true as const, id: r.data.id as string }
 }
 
-// Cobrança ÚNICA (usada no plano anual): o cliente escolhe Pix à vista OU
-// cartão parcelado no checkout (o número de parcelas do cartão vem da config de
-// parcelamento da conta Asaas). Retorna o id e o invoiceUrl (link) direto.
+// Cobrança ÚNICA (usada no plano anual): valor cheio no topo. O cliente escolhe
+// Pix à vista OU cartão; o parcelamento no cartão (em até Nx) e a exibição/ocultação
+// do boleto vêm da configuração da conta Asaas (painel). Retorna id + invoiceUrl.
 export async function criarCobrancaAvulsa(params: {
   customerId: string
   valor: number
