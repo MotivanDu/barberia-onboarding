@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+const AZUL = '#1c52f8'
+
 export default function LoginPage() {
   const router = useRouter()
   const [identificador, setIdentificador] = useState('')
@@ -34,37 +36,36 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#f6f6f4] text-[#16181d] flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">💈 BarberIA</h1>
-          <p className="text-gray-400">Entre no painel da sua barbearia</p>
+          <p className="text-4xl font-extrabold mb-2">Barber<span style={{ color: AZUL }}>IA</span></p>
+          <p className="text-[#5b6472]">Entre no painel da sua barbearia</p>
         </div>
 
-        <form onSubmit={entrar} className="bg-gray-900 rounded-2xl p-6 space-y-5">
+        <form onSubmit={entrar} className="bg-white border border-[#e5e7eb] rounded-2xl p-6 space-y-5 shadow-sm">
           <div>
-            <label className="block text-gray-300 mb-2 font-medium">
-              Código da barbearia ou telefone
-            </label>
+            <label className="block mb-2 font-medium">Código da barbearia ou telefone</label>
             <input
               value={identificador}
               onChange={e => setIdentificador(e.target.value)}
               placeholder="Ex.: EDUARDOU73 ou 11999998888"
-              className="w-full bg-gray-800 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full bg-[#f6f6f4] border border-[#e5e7eb] rounded-xl px-4 py-3 outline-none focus:border-[#1c52f8]"
               autoFocus
             />
           </div>
-          {erro && <p className="text-red-400 text-sm">{erro}</p>}
+          {erro && <p className="text-red-600 text-sm">{erro}</p>}
           <button
             type="submit"
             disabled={loading || !identificador.trim()}
-            className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-xl py-3 font-semibold"
+            className="w-full rounded-xl py-3 font-semibold text-white disabled:opacity-50"
+            style={{ background: AZUL }}
           >
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
-          <p className="text-gray-500 text-sm text-center">
+          <p className="text-[#5b6472] text-sm text-center">
             Ainda não tem cadastro?{' '}
-            <Link href="/cadastro" className="text-amber-500 hover:underline">
+            <Link href="/cadastro" className="hover:underline" style={{ color: AZUL }}>
               Cadastre sua barbearia
             </Link>
           </p>
