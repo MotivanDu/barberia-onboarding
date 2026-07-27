@@ -66,6 +66,14 @@ export async function desligarInstancia(instanceName: string) {
   return evo(`/instance/delete/${instanceName}`, { method: 'DELETE' })
 }
 
+// Envia mensagem de texto pelo WhatsApp (instância central "BarberIA").
+export async function enviarTexto(instanceName: string, numero: string, texto: string) {
+  return evo(`/message/sendText/${instanceName}`, {
+    method: 'POST',
+    body: JSON.stringify({ number: numero, text: texto }),
+  })
+}
+
 export async function dadosInstancia(instanceName: string) {
   const r = await evo(`/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`)
   const lista = Array.isArray(r.data) ? r.data : []

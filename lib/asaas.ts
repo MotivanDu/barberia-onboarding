@@ -129,6 +129,14 @@ export async function cancelarAssinatura(subscriptionId: string) {
   return { ok: true as const }
 }
 
+// Busca a cobrança mais recente por referência externa (ex.: link de renovação)
+export async function buscarCobrancaPorRef(externalReference: string) {
+  const r = await asaas(`/payments?externalReference=${encodeURIComponent(externalReference)}&limit=1`)
+  const p = r?.data?.data?.[0]
+  if (!p) return null
+  return { id: p.id as string, status: p.status as string, invoiceUrl: (p.invoiceUrl as string) || null }
+}
+
 // Link da cobrança pendente mais recente da assinatura (para reenvio manual)
 export async function linkCobrancaPendente(subscriptionId: string) {
   const r = await asaas(`/subscriptions/${subscriptionId}/payments?status=PENDING`)
