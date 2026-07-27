@@ -411,25 +411,14 @@ export default function CadastroPage() {
               </div>
             )}
 
-            {/* Código de acesso */}
-            <div className="bg-gray-800 rounded-xl p-4">
-              <p className="text-xs text-gray-400 mb-1">Seu código de acesso ao painel (guarde!)</p>
-              <p className="text-3xl font-bold tracking-widest text-amber-400">{resultado.codigo}</p>
-              <button
-                onClick={() => navigator.clipboard.writeText(resultado.panelLink)}
-                className="mt-3 bg-gray-700 hover:bg-gray-600 text-white text-sm px-6 py-2 rounded-lg transition"
-              >
-                Copiar link do painel
-              </button>
-            </div>
-
             <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-4 text-left">
               <p className="text-sm text-blue-300 font-semibold mb-2">✅ O que acontece depois de pagar</p>
               <ul className="text-sm text-gray-400 space-y-1">
                 <li>• A IA da sua barbearia é ativada na hora</li>
-                <li>• Você recebe a confirmação no seu WhatsApp</li>
-                <li>• Entre no painel com o seu código para conectar o WhatsApp e divulgar</li>
+                <li>• Você recebe no seu <b className="text-gray-200">WhatsApp</b> o <b className="text-gray-200">link exclusivo do seu painel</b></li>
+                <li>• É só abrir o link para conectar o WhatsApp e começar a divulgar</li>
               </ul>
+              <p className="text-xs text-gray-500 mt-3">🔒 Seu acesso ao painel é liberado somente após a confirmação do pagamento.</p>
             </div>
           </div>
         )}
