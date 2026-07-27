@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Logo from '../_components/Logo'
 
 const AZUL = '#1c52f8'
 
@@ -39,7 +40,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#f6f6f4] text-[#16181d] flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <p className="text-4xl font-extrabold mb-2">Barber<span style={{ color: AZUL }}>IA</span></p>
+          <div className="flex justify-center mb-3"><Logo theme="light" className="h-10 w-auto" /></div>
           <p className="text-[#5b6472]">Entre no painel da sua barbearia</p>
         </div>
 

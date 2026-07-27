@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
+import Logo from '../_components/Logo'
 
 const DIAS = [
   { label: 'Domingo', value: 0 },
@@ -138,7 +139,7 @@ export default function CadastroPage() {
       <div className="max-w-2xl mx-auto px-4 py-10">
         {/* Header */}
         <div className="text-center mb-10">
-          <p className="text-3xl font-extrabold mb-2">Barber<span style={{ color: '#1c52f8' }}>IA</span></p>
+          <div className="flex justify-center mb-3"><Logo theme="light" className="h-10 w-auto" /></div>
           <p className="text-[#5b6472]">Cadastre sua barbearia e comece a receber agendamentos via WhatsApp</p>
         </div>
 
