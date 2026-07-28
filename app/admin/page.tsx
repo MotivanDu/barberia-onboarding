@@ -671,10 +671,10 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
   const precisaMelhorar = (d?.insights || []).filter(i => i.nivel !== 'bom')
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-2 md:p-6" onClick={onClose}>
-      <div className="bg-white border border-[#e5e7eb] rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-stretch md:items-center justify-center md:p-6" onClick={onClose}>
+      <div className="bg-white border border-[#e5e7eb] w-full md:max-w-5xl h-full md:h-auto md:max-h-[95vh] md:rounded-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* cabeçalho fixo */}
-        <div className="flex items-start justify-between gap-3 p-5 border-b border-[#e5e7eb] bg-white shrink-0">
+        <div className="flex items-start justify-between gap-3 p-4 border-b border-[#e5e7eb] bg-white shrink-0">
           <div>
             <h2 className="text-xl font-bold">
               {wsOk ? '🟢' : '🔴'} {t?.nome_barbearia || codigo}
