@@ -647,10 +647,10 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
   const precisaMelhorar = (d?.insights || []).filter(i => i.nivel !== 'bom')
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-start md:items-center justify-center p-2 md:p-6 overflow-y-auto" onClick={onClose}>
-      <div className="bg-white border border-[#e5e7eb] rounded-2xl w-full max-w-5xl my-4" onClick={e => e.stopPropagation()}>
-        {/* cabeçalho */}
-        <div className="flex items-start justify-between gap-3 p-5 border-b border-[#e5e7eb] sticky top-0 bg-white rounded-t-2xl z-10">
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-2 md:p-6" onClick={onClose}>
+      <div className="bg-white border border-[#e5e7eb] rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* cabeçalho fixo */}
+        <div className="flex items-start justify-between gap-3 p-5 border-b border-[#e5e7eb] bg-white shrink-0">
           <div>
             <h2 className="text-xl font-bold">
               {wsOk ? '🟢' : '🔴'} {t?.nome_barbearia || codigo}
@@ -664,6 +664,8 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
           <button onClick={onClose} className="bg-[#f6f6f4] border border-[#e5e7eb] hover:bg-[#e5e7eb] rounded-lg px-3 py-1.5 text-sm shrink-0">✕ fechar</button>
         </div>
 
+        {/* corpo com rolagem própria (o cabeçalho acima nunca cobre isto) */}
+        <div className="flex-1 overflow-y-auto min-h-0">
         {erro && <div className="m-5 bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">{erro}</div>}
         {!d && !erro && <div className="p-10 text-center text-[#5b6472]">Carregando dashboard...</div>}
 
@@ -805,6 +807,7 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   )
