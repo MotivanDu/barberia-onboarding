@@ -36,6 +36,7 @@ type DashData = {
     semanas: { label: string; qtd: number; valor: number }[]
   }
   ranking_servicos: { nome: string; qtd: number }[]
+  agenda: { data: string; hora: string; cliente: string; servico: string; status: string }[]
 }
 
 const brl = (v: number) =>
@@ -61,11 +62,100 @@ function ChartBox({ titulo, children }: { titulo: string; children: React.ReactN
   )
 }
 
+function Agenda({ agenda }: { agenda: DashData['agenda'] }) {
+  const [ref, setRef] = useState(() => { const d = new Date(); return { ano: d.getFullYear(), mes: d.getMonth() } })
+  const [diaSel, setDiaSel] = useState<string | null>(null)
+
+  const primeiroDia = new Date(ref.ano, ref.mes, 1)
+  const diaSemanaInicio = primeiroDia.getDay()
+  const diasNoMes = new Date(ref.ano, ref.mes + 1, 0).getDate()
+  const nomeMes = primeiroDia.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+
+  const porData: Record<string, DashData['agenda']> = {}
+  for (const a of agenda) (porData[a.data] ||= []).push(a)
+  for (const kk in porData) porData[kk].sort((x, y) => x.hora.localeCompare(y.hora))
+
+  const fmt = (dia: number) => `${ref.ano}-${String(ref.mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
+  const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+
+  const celulas: (number | null)[] = []
+  for (let i = 0; i < diaSemanaInicio; i++) celulas.push(null)
+  for (let d = 1; d <= diasNoMes; d++) celulas.push(d)
+
+  const ant = () => { setDiaSel(null); setRef(r => (r.mes === 0 ? { ano: r.ano - 1, mes: 11 } : { ano: r.ano, mes: r.mes - 1 })) }
+  const prox = () => { setDiaSel(null); setRef(r => (r.mes === 11 ? { ano: r.ano + 1, mes: 0 } : { ano: r.ano, mes: r.mes + 1 })) }
+
+  const selData = diaSel ? porData[diaSel] : null
+  const totalMes = celulas.reduce((s: number, d) => s + (d ? (porData[fmt(d)]?.length || 0) : 0), 0)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between bg-white border border-[#e5e7eb] rounded-xl p-3">
+        <button onClick={ant} className="px-3 py-1.5 rounded-lg bg-[#f6f6f4] hover:bg-[#e5e7eb]">←</button>
+        <div className="text-center">
+          <span className="font-semibold capitalize">{nomeMes}</span>
+          <p className="text-xs text-[#5b6472]">{totalMes} agendamento(s)</p>
+        </div>
+        <button onClick={prox} className="px-3 py-1.5 rounded-lg bg-[#f6f6f4] hover:bg-[#e5e7eb]">→</button>
+      </div>
+
+      <div className="bg-white border border-[#e5e7eb] rounded-xl p-2">
+        <div className="grid grid-cols-7 text-center text-[11px] text-[#5b6472] mb-1">
+          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => <div key={d}>{d}</div>)}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {celulas.map((d, i) => {
+            if (d === null) return <div key={i} />
+            const ds = fmt(d)
+            const items = porData[ds] || []
+            const tem = items.length > 0
+            const hoje = ds === hojeStr
+            const sel = ds === diaSel
+            return (
+              <button
+                key={i}
+                onClick={() => tem && setDiaSel(sel ? null : ds)}
+                className={`min-h-[54px] rounded-lg p-1 text-left border ${tem ? 'bg-[#1c52f8]/5 border-[#1c52f8]/30' : 'bg-[#f6f6f4] border-transparent'} ${sel ? 'ring-2 ring-[#1c52f8]' : hoje ? 'ring-1 ring-[#1c52f8]' : ''}`}
+              >
+                <div className={`text-xs font-semibold ${hoje ? 'text-[#1c52f8]' : 'text-[#16181d]'}`}>{d}</div>
+                {items.slice(0, 2).map((a, j) => (
+                  <div key={j} className="text-[9px] leading-tight truncate text-[#1c52f8]">{a.hora} {a.cliente.split(' ')[0]}</div>
+                ))}
+                {items.length > 2 && <div className="text-[9px] text-[#5b6472]">+{items.length - 2}</div>}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {selData ? (
+        <div className="bg-white border border-[#e5e7eb] rounded-xl p-4">
+          <p className="font-semibold mb-2 capitalize">
+            {new Date(diaSel + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+          </p>
+          <div className="space-y-2">
+            {selData.map((a, i) => (
+              <div key={i} className="flex items-center gap-3 text-sm border-b border-[#e5e7eb] pb-2 last:border-0 last:pb-0">
+                <span className="font-mono font-semibold text-[#1c52f8] w-12">{a.hora}</span>
+                <span className="flex-1 font-medium">{a.cliente}</span>
+                <span className="text-[#5b6472] hidden sm:block">{a.servico}</span>
+                <span className={`text-xs ${a.status === 'concluido' ? 'text-emerald-600' : a.status === 'cancelado' ? 'text-red-600' : 'text-[#1c52f8]'}`}>{a.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-center text-[#5b6472] text-sm">Toque num dia marcado (azul) para ver os cortes agendados, com nome do cliente.</p>
+      )}
+    </div>
+  )
+}
+
 export default function PainelPage() {
   const params = useParams<{ codigo: string }>()
   const codigo = (params?.codigo || '').toString().toUpperCase()
 
-  const [aba, setAba] = useState<'relatorio' | 'servicos' | 'horarios' | 'whatsapp'>('relatorio')
+  const [aba, setAba] = useState<'relatorio' | 'agenda' | 'servicos' | 'horarios' | 'whatsapp'>('relatorio')
   const [nome, setNome] = useState('')
   const [sistemaAtivo, setSistemaAtivo] = useState(true)
   const [whats, setWhats] = useState<{ instancia: string | null; state: string; numero?: string | null }>({ instancia: null, state: '...' })
@@ -233,10 +323,11 @@ export default function PainelPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-6">
           {(
             [
               ['relatorio', '📊 Painel'],
+              ['agenda', '📅 Agenda'],
               ['servicos', '✂️ Serviços'],
               ['horarios', '🗓️ Horários'],
               ['whatsapp', '📱 WhatsApp'],
@@ -267,6 +358,15 @@ export default function PainelPage() {
                 </p>
               </div>
 
+              {/* SEM O BARBERIA */}
+              <div className="rounded-2xl p-4 text-white" style={{ background: '#1c52f8' }}>
+                <p className="text-sm text-blue-100">🚫 Sem o BarberIA, você deixaria de ganhar</p>
+                <p className="text-3xl font-bold mt-1">{brl(dash.kpis.receita_ia)}</p>
+                <p className="text-xs text-blue-100 mt-1">
+                  é o quanto a IA já gerou pra você — {brl(dash.kpis.receita_ia_mes)} só este mês · {brl(dash.kpis.receita_ia_semana)} nos últimos 7 dias
+                </p>
+              </div>
+
               {/* RECEITA */}
               <div>
                 <p className="font-semibold mb-2 text-[#5b6472] text-sm">💰 Receita gerada</p>
@@ -294,8 +394,9 @@ export default function PainelPage() {
               {/* CLIENTES */}
               <div>
                 <p className="font-semibold mb-2 text-[#5b6472] text-sm">👥 Clientes</p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <Kpi titulo="Na base" valor={String(dash.kpis.clientes_total)} />
+                  <Kpi titulo="Ativos (últimos 30 dias)" valor={String(dash.kpis.clientes_ativos)} cor="text-[#1c52f8]" sub="com corte recente ou marcado" />
                   <Kpi titulo="Novos no mês" valor={`+${dash.kpis.clientes_novos_mes}`} cor="text-emerald-600" />
                   <Kpi titulo="Novos na semana" valor={`+${dash.kpis.clientes_novos_semana}`} cor="text-emerald-600" />
                 </div>
@@ -380,6 +481,10 @@ export default function PainelPage() {
               </p>
             </div>
           )
+        )}
+
+        {aba === 'agenda' && (
+          !dash ? <p className="text-center text-[#5b6472] py-10">Carregando agenda...</p> : <Agenda agenda={dash.agenda} />
         )}
 
         {!carregando && aba === 'servicos' && (

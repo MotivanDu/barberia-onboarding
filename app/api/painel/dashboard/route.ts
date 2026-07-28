@@ -46,9 +46,9 @@ export async function GET(req: NextRequest) {
   const [{ data: agendamentos }, { data: clientes }, { data: conversas }, { data: barbeiros }, { data: servicos }] = await Promise.all([
     supabaseAdmin
       .from('agendamentos')
-      .select('status, valor_cobrado, origem, periodo, confirmado_em, servico_nome, servico_id, telefone_cliente')
+      .select('status, valor_cobrado, origem, periodo, confirmado_em, servico_nome, servico_id, telefone_cliente, cliente_id')
       .eq('tenant_id', tenant.id),
-    supabaseAdmin.from('clientes').select('criado_em, telefone').eq('tenant_id', tenant.id),
+    supabaseAdmin.from('clientes').select('id, nome, criado_em, telefone').eq('tenant_id', tenant.id),
     supabaseAdmin.from('conversas_ia').select('telefone, tipo').eq('tenant_id', tenant.id),
     supabaseAdmin.from('barbeiros').select('nome').eq('tenant_id', tenant.id).eq('ativo', true),
     supabaseAdmin.from('servicos').select('id, categoria').eq('tenant_id', tenant.id),
@@ -83,7 +83,18 @@ export async function GET(req: NextRequest) {
     meses.push(chaveMes(d))
   }
 
-  for (const a of ags) {
+  // nomes dos clientes (por id e por telefone) para a agenda
+  const nomePorId: Record<string, string> = {}
+  const nomePorTel: Record<string, string> = {}
+  for (const c of cs as any[]) {
+    if (c.id) nomePorId[c.id] = c.nome
+    if (c.telefone) nomePorTel[c.telefone] = c.nome
+  }
+  const clientesAtivos = new Set<string>()
+  const agenda: { data: string; hora: string; cliente: string; servico: string; status: string }[] = []
+  let receitaIAMes = 0, receitaIASemana = 0
+
+  for (const a of ags as any[]) {
     const ini = inicioPeriodo(a.periodo)
     const km = ini ? chaveMes(ini) : null
     const naoCancelado = a.status !== 'cancelado'
@@ -97,6 +108,17 @@ export async function GET(req: NextRequest) {
     if (a.status === 'cancelado') cancelados++
 
     if (naoCancelado && ini && ini.getTime() > agora) futuros++
+    if (naoCancelado && ini && ini.getTime() >= trintaDias && a.telefone_cliente) clientesAtivos.add(a.telefone_cliente)
+    if (naoCancelado && ini) {
+      const nome = (a.cliente_id && nomePorId[a.cliente_id]) || (a.telefone_cliente && nomePorTel[a.telefone_cliente]) || 'Cliente'
+      agenda.push({
+        data: ini.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }),
+        hora: ini.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }),
+        cliente: nome,
+        servico: a.servico_nome || 'Serviço',
+        status: a.status,
+      })
+    }
     if (km === mesAtual) agsMes++
     if (ini && ini.getTime() >= seteDias && ini.getTime() <= agora) agsSemana++
 
@@ -104,7 +126,11 @@ export async function GET(req: NextRequest) {
       concluidos++
       const v = parseFloat(a.valor_cobrado) || 0
       receitaTotal += v
-      if (a.origem === 'ia') receitaIA += v
+      if (a.origem === 'ia') {
+        receitaIA += v
+        if (km === mesAtual) receitaIAMes += v
+        if (ini && ini.getTime() >= seteDias && ini.getTime() <= agora) receitaIASemana += v
+      }
       if (km) receitaPorMes[km] = (receitaPorMes[km] || 0) + v
       if (km === mesAtual) receitaMes += v
       if (ini && ini.getTime() >= seteDias && ini.getTime() <= agora) receitaSemana += v
@@ -178,9 +204,12 @@ export async function GET(req: NextRequest) {
       receita_mes: Math.round(receitaMes * 100) / 100,
       receita_semana: Math.round(receitaSemana * 100) / 100,
       receita_ia: Math.round(receitaIA * 100) / 100,
+      receita_ia_mes: Math.round(receitaIAMes * 100) / 100,
+      receita_ia_semana: Math.round(receitaIASemana * 100) / 100,
       pct_receita_ia: receitaTotal > 0 ? Math.round((100 * receitaIA) / receitaTotal) : 0,
       ticket_medio: Math.round(ticketMedio * 100) / 100,
       clientes_total: cs.length,
+      clientes_ativos: clientesAtivos.size,
       clientes_novos_mes: novosMes,
       clientes_novos_semana: novosSemana,
       captados_ia: captadosIA.size,
@@ -201,5 +230,6 @@ export async function GET(req: NextRequest) {
       semanas,
     },
     ranking_servicos: ranking,
+    agenda,
   })
 }
