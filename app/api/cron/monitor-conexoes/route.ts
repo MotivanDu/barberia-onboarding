@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { listarInstancias, enviarTexto } from '@/lib/evolution'
+import { enviarEmailAlerta } from '@/lib/email'
 
 // Número do Du que recebe os alertas de conexão
 const DU = '5519992252913'
@@ -66,15 +67,20 @@ export async function GET(req: NextRequest) {
   let enviados = 0
   const upsertsClose: any[] = []
 
+  let emails = 0
   for (const q of quedas) {
-    const msg = `⚠️ *ALERTA DE CONEXÃO*\n\n📵 ${q.friendly} *DESCONECTOU* do WhatsApp!\n\nReconecte o quanto antes para não parar o atendimento.`
-    const ok = await enviarPorAlguma(msg)
-    if (ok) enviados++
-    // só marca como "avisado" se conseguiu entregar; senão tenta de novo na próxima rodada
-    upsertsClose.push({ instancia: q.name, estado: 'close', avisado: ok, atualizado_em: agora })
+    const texto = q.friendly.replace(/\*/g, '')
+    const wa = await enviarPorAlguma(`⚠️ *ALERTA DE CONEXÃO*\n\n📵 ${q.friendly} *DESCONECTOU* do WhatsApp!\n\nReconecte o quanto antes para não parar o atendimento.`)
+    const em = await enviarEmailAlerta('⚠️ BarberIA: conexão desconectou', `${texto} DESCONECTOU do WhatsApp. Reconecte o quanto antes para não parar o atendimento.`)
+    if (wa) enviados++
+    if (em.ok) emails++
+    // marca como "avisado" se ENTREGOU por qualquer canal; senão tenta de novo na próxima rodada
+    upsertsClose.push({ instancia: q.name, estado: 'close', avisado: wa || em.ok, atualizado_em: agora })
   }
   for (const v of voltas) {
+    const texto = v.replace(/\*/g, '')
     await enviarPorAlguma(`✅ *Conexão restabelecida*\n\n${v} voltou a conectar no WhatsApp. Tudo normalizado. 💈`)
+    await enviarEmailAlerta('✅ BarberIA: conexão restabelecida', `${texto} voltou a conectar no WhatsApp. Tudo normalizado.`)
   }
 
   const todosUpserts = [...upsertsOpen, ...upsertsClose]
@@ -88,6 +94,7 @@ export async function GET(req: NextRequest) {
     quedas: quedas.length,
     voltas: voltas.length,
     enviados,
+    emails,
     remetentes_disponiveis: remetentes.length,
     estados: instancias.map(i => ({ nome: i.name, estado: i.state })),
   })
