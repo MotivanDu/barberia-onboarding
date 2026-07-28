@@ -62,6 +62,27 @@ function ChartBox({ titulo, children }: { titulo: string; children: React.ReactN
   )
 }
 
+// Alguns clientes foram salvos com o telefone no lugar do nome (a IA não capturou
+// o nome). Nesses casos, mostramos o telefone formatado em vez dos números crus.
+function ehTelefone(nome: string) {
+  return /^\d{10,13}$/.test((nome || '').trim())
+}
+function nomeCompleto(nome: string) {
+  const s = (nome || '').trim()
+  if (!ehTelefone(s)) return s
+  const n = s.length >= 12 && s.startsWith('55') ? s.slice(2) : s
+  const ddd = n.slice(0, 2)
+  const r = n.slice(2)
+  const meio = r.length >= 9 ? r.slice(0, 5) : r.slice(0, 4)
+  const fim = r.length >= 9 ? r.slice(5) : r.slice(4)
+  return `📱 (${ddd}) ${meio}-${fim}`
+}
+function nomeCurto(nome: string) {
+  const s = (nome || '').trim()
+  if (ehTelefone(s)) return '📱 …' + s.slice(-4)
+  return s.split(' ')[0]
+}
+
 function Agenda({ agenda }: { agenda: DashData['agenda'] }) {
   const [ref, setRef] = useState(() => { const d = new Date(); return { ano: d.getFullYear(), mes: d.getMonth() } })
   const [diaSel, setDiaSel] = useState<string | null>(null)
@@ -119,7 +140,7 @@ function Agenda({ agenda }: { agenda: DashData['agenda'] }) {
               >
                 <div className={`text-xs font-semibold ${hoje ? 'text-[#1c52f8]' : 'text-[#16181d]'}`}>{d}</div>
                 {items.slice(0, 2).map((a, j) => (
-                  <div key={j} className="text-[9px] leading-tight truncate text-[#1c52f8]">{a.hora} {a.cliente.split(' ')[0]}</div>
+                  <div key={j} className="text-[9px] leading-tight truncate text-[#1c52f8]">{a.hora} {nomeCurto(a.cliente)}</div>
                 ))}
                 {items.length > 2 && <div className="text-[9px] text-[#5b6472]">+{items.length - 2}</div>}
               </button>
@@ -137,7 +158,7 @@ function Agenda({ agenda }: { agenda: DashData['agenda'] }) {
             {selData.map((a, i) => (
               <div key={i} className="flex items-center gap-3 text-sm border-b border-[#e5e7eb] pb-2 last:border-0 last:pb-0">
                 <span className="font-mono font-semibold text-[#1c52f8] w-12">{a.hora}</span>
-                <span className="flex-1 font-medium">{a.cliente}</span>
+                <span className="flex-1 font-medium">{nomeCompleto(a.cliente)}</span>
                 <span className="text-[#5b6472] hidden sm:block">{a.servico}</span>
                 <span className={`text-xs ${a.status === 'concluido' ? 'text-emerald-600' : a.status === 'cancelado' ? 'text-red-600' : 'text-[#1c52f8]'}`}>{a.status}</span>
               </div>
