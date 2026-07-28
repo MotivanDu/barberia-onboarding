@@ -58,6 +58,13 @@ export async function GET(req: NextRequest) {
   const ags = agendamentos || []
   const msgs = mensagens || []
 
+  // Dashboard central = só contas ATIVAS (pagas). Canceladas/teste não entram nos números agregados.
+  const tsAtivos = ts.filter(t => t.status_assinatura === 'ativo')
+  const ativosIds = new Set(tsAtivos.map(t => t.id))
+  const agsAtivos = ags.filter(a => ativosIds.has(a.tenant_id))
+  const csAtivos = cs.filter(c => ativosIds.has(c.tenant_id))
+  const msgsAtivos = msgs.filter(m => ativosIds.has(m.tenant_id))
+
   const planoPorId: Record<string, any> = {}
   for (const p of ps) planoPorId[p.id] = p
 
@@ -76,9 +83,9 @@ export async function GET(req: NextRequest) {
     mesesFuturos.push(chaveMes(d))
   }
 
-  // novas barbearias por mês
+  // novas barbearias por mês (só as que viraram contas ativas)
   const novasPorMes: Record<string, number> = {}
-  for (const t of ts) {
+  for (const t of tsAtivos) {
     const k = chaveMes(new Date(t.criado_em))
     novasPorMes[k] = (novasPorMes[k] || 0) + 1
   }
@@ -90,7 +97,7 @@ export async function GET(req: NextRequest) {
   let gmvIA = 0
   let agsMesAtual = 0
   let concluidosTotal = 0
-  for (const a of ags) {
+  for (const a of agsAtivos) {
     const ini = inicioPeriodo(a.periodo)
     if (!ini) continue
     const k = chaveMes(ini)
@@ -176,7 +183,7 @@ export async function GET(req: NextRequest) {
         )
       : 0
 
-  const resgatesEnviados = msgs.filter(m => m.tipo === 'reativacao').length
+  const resgatesEnviados = msgsAtivos.filter(m => m.tipo === 'reativacao').length
 
   const nomePorTenantId: Record<string, string> = {}
   for (const t of ts) nomePorTenantId[t.id] = t.nome_barbearia
@@ -192,7 +199,7 @@ export async function GET(req: NextRequest) {
       arr: Math.round(mrr * 12 * 100) / 100,
       backlog_contratado: Math.round(backlog * 100) / 100,
       ltv_medio: ltvMedio,
-      clientes_finais: cs.length,
+      clientes_finais: csAtivos.length,
       agendamentos_mes: agsMesAtual,
       agendamentos_concluidos_total: concluidosTotal,
       gmv_total: Math.round(gmvTotal * 100) / 100,
