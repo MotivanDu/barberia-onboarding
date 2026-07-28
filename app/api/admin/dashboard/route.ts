@@ -163,7 +163,6 @@ export async function GET(req: NextRequest) {
   })
 
   const ativos = ts.filter(t => t.status_assinatura === 'ativo').length
-  const trial = ts.filter(t => t.status_assinatura === 'trial').length
   const cancelados = ts.filter(t => t.status_assinatura === 'cancelado').length
   const churn = ts.length > 0 ? Math.round((100 * cancelados) / ts.length) : 0
 
@@ -187,7 +186,6 @@ export async function GET(req: NextRequest) {
     kpis: {
       barbearias_total: ts.length,
       barbearias_ativas: ativos,
-      barbearias_trial: trial,
       barbearias_canceladas: cancelados,
       churn_pct: churn,
       mrr: Math.round(mrr * 100) / 100,
@@ -374,7 +372,7 @@ export async function POST(req: NextRequest) {
 
     if (body.acao === 'status-assinatura') {
       const { codigo, status } = body
-      if (!['trial', 'ativo', 'cancelado'].includes(status)) {
+      if (!['ativo', 'cancelado'].includes(status)) {
         return NextResponse.json({ error: 'status inválido' }, { status: 400 })
       }
       const { error } = await supabaseAdmin

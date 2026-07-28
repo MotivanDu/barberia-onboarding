@@ -121,6 +121,7 @@ export default function AdminPage() {
   const [dash, setDash] = useState<Dash | null>(null)
   const [aba, setAba] = useState<'visao' | 'barbearias' | 'clientes' | 'planos' | 'central'>('visao')
   const [busca, setBusca] = useState('')
+  const [filtroStatus, setFiltroStatus] = useState<'todos' | 'ativo' | 'cancelado'>('todos')
   const [qr, setQr] = useState<string | null>(null)
   const [gerandoQr, setGerandoQr] = useState(false)
   const [centralState, setCentralState] = useState('')
@@ -335,7 +336,7 @@ export default function AdminPage() {
               <Card
                 titulo="Barbearias"
                 valor={String(k.barbearias_total)}
-                sub={`${k.barbearias_ativas} ativas · ${k.barbearias_trial} trial · ${k.barbearias_canceladas} canc.`}
+                sub={`${k.barbearias_ativas} pagas · ${k.barbearias_canceladas} canceladas`}
               />
               <Card titulo="Clientes finais na base" valor={String(k.clientes_finais)} />
               <Card titulo="Agendamentos no mês" valor={String(k.agendamentos_mes)} sub={`${k.agendamentos_concluidos_total} concluídos no total`} />
@@ -403,7 +404,21 @@ export default function AdminPage() {
 
         {aba === 'barbearias' && dash && (
           <div className="space-y-3">
-            {dash.barbearias.map(b => (
+            <div className="flex gap-2 flex-wrap">
+              {([['todos', 'Todas'], ['ativo', 'Pagas'], ['cancelado', 'Canceladas']] as const).map(([v, label]) => {
+                const n = v === 'todos' ? dash.barbearias.length : dash.barbearias.filter(x => x.status_assinatura === v).length
+                return (
+                  <button
+                    key={v}
+                    onClick={() => setFiltroStatus(v)}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium ${filtroStatus === v ? 'bg-[#1c52f8] text-white' : 'bg-white border border-[#e5e7eb] hover:bg-[#eef0f4]'}`}
+                  >
+                    {label} ({n})
+                  </button>
+                )
+              })}
+            </div>
+            {dash.barbearias.filter(b => filtroStatus === 'todos' || b.status_assinatura === filtroStatus).map(b => (
               <div key={b.codigo} className="bg-white border border-[#e5e7eb] rounded-2xl p-4">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
@@ -449,9 +464,8 @@ export default function AdminPage() {
                     onChange={e => acao({ acao: 'status-assinatura', codigo: b.codigo, status: e.target.value })}
                     className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2"
                   >
-                    <option value="trial">trial</option>
-                    <option value="ativo">ativo</option>
-                    <option value="cancelado">cancelado</option>
+                    <option value="ativo">Pago</option>
+                    <option value="cancelado">Cancelado</option>
                   </select>
                   <CpfInput
                     valorInicial={b.cpf_cnpj || ''}

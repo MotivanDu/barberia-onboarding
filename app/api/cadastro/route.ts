@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         nome_barbearia,
         evolution_instance: `inst_${codigo.toLowerCase()}`,
         timezone: 'America/Sao_Paulo',
-        status_assinatura: 'trial',
+        status_assinatura: 'cancelado', // só vira 'ativo' quando o pagamento confirmar
         codigo,
         cpf_cnpj: cpfLimpo,
         plano_id: planoEscolhido.id,
