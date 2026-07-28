@@ -18,6 +18,8 @@ function inicioPeriodo(p: string | null): Date | null {
     return null
   }
 }
+export const dynamic = 'force-dynamic'
+
 const DIA_MS = 24 * 60 * 60 * 1000
 
 // ciclo natural do serviço: barba/combo ~15 dias, corte/outros ~30 dias.

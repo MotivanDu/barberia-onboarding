@@ -174,7 +174,7 @@ export default function PainelPage() {
   const carregar = useCallback(async () => {
     setCarregando(true)
     // dashboard carrega em paralelo, sem travar o painel
-    fetch(`/api/painel/dashboard?codigo=${codigo}`)
+    fetch(`/api/painel/dashboard?codigo=${codigo}`, { cache: 'no-store' })
       .then(r => (r.ok ? r.json() : null))
       .then(d => d && setDash(d))
       .catch(() => {})
