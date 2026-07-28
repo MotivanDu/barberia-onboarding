@@ -14,6 +14,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts'
+import Logo from '../_components/Logo'
 
 type Plano = {
   id: string
@@ -94,24 +95,24 @@ const brl = (v: number) =>
 
 function Card({ titulo, valor, sub, destaque }: { titulo: string; valor: string; sub?: string; destaque?: boolean }) {
   return (
-    <div className={`rounded-2xl p-4 ${destaque ? 'bg-amber-600' : 'bg-gray-900'}`}>
-      <p className={`text-xs ${destaque ? 'text-amber-100' : 'text-gray-400'}`}>{titulo}</p>
+    <div className={`rounded-2xl p-4 ${destaque ? 'bg-[#1c52f8] text-white' : 'bg-white border border-[#e5e7eb]'}`}>
+      <p className={`text-xs ${destaque ? 'text-blue-100' : 'text-[#5b6472]'}`}>{titulo}</p>
       <p className="text-2xl font-bold mt-1">{valor}</p>
-      {sub && <p className={`text-xs mt-1 ${destaque ? 'text-amber-100' : 'text-gray-500'}`}>{sub}</p>}
+      {sub && <p className={`text-xs mt-1 ${destaque ? 'text-blue-100' : 'text-[#5b6472]'}`}>{sub}</p>}
     </div>
   )
 }
 
 function GraficoBox({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div className="bg-gray-900 rounded-2xl p-4">
-      <p className="font-medium mb-3 text-gray-300">{titulo}</p>
+    <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4">
+      <p className="font-medium mb-3 text-[#5b6472]">{titulo}</p>
       <div className="h-56">{children}</div>
     </div>
   )
 }
 
-const tooltipStyle = { backgroundColor: '#111827', border: '1px solid #374151', borderRadius: 12, color: '#fff' }
+const tooltipStyle = { backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 12, color: '#16181d' }
 
 export default function AdminPage() {
   const [senha, setSenha] = useState('')
@@ -261,19 +262,20 @@ export default function AdminPage() {
 
   if (!logado) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-4">
-        <form onSubmit={entrar} className="bg-gray-900 rounded-2xl p-6 w-full max-w-sm space-y-4">
-          <h1 className="text-2xl font-bold text-center">🔐 Admin BarberIA</h1>
+      <div className="min-h-screen bg-[#f6f6f4] text-[#16181d] flex items-center justify-center px-4">
+        <form onSubmit={entrar} className="bg-white border border-[#e5e7eb] rounded-2xl p-6 w-full max-w-sm space-y-4">
+          <div className="flex justify-center"><Logo theme="light" className="h-9 w-auto" /></div>
+          <p className="text-center text-[#5b6472] text-sm">Painel do Dono</p>
           <input
             type="password"
             value={senha}
             onChange={e => setSenha(e.target.value)}
             placeholder="Senha de administrador"
-            className="w-full bg-gray-800 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full bg-[#f6f6f4] border border-[#e5e7eb] rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#1c52f8]"
             autoFocus
           />
-          {erro && <p className="text-red-400 text-sm">{erro}</p>}
-          <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 rounded-xl py-3 font-semibold">
+          {erro && <p className="text-red-600 text-sm">{erro}</p>}
+          <button type="submit" className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white rounded-xl py-3 font-semibold">
             Entrar
           </button>
         </form>
@@ -288,21 +290,21 @@ export default function AdminPage() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-[#f6f6f4] text-[#16181d]">
       <div className="max-w-6xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-6">
-          <h1 className="text-2xl font-bold">💈 BarberIA — Painel do Dono</h1>
-          <div className="flex items-center gap-3 text-sm text-gray-400">
+          <div className="flex items-center gap-2"><Logo theme="light" className="h-7 w-auto" /><span className="text-lg font-bold text-[#5b6472]">· Painel do Dono</span></div>
+          <div className="flex items-center gap-3 text-sm text-[#5b6472]">
             <span>
               atualizado {dash ? new Date(dash.atualizado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...'}
               {' '}· auto a cada 60s
             </span>
-            <button onClick={() => carregar()} className="bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-1">🔄</button>
-            <button onClick={exportarCSV} className="bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-1">📥 CSV</button>
+            <button onClick={() => carregar()} className="bg-[#f6f6f4] border border-[#e5e7eb] hover:bg-[#e5e7eb] rounded-lg px-3 py-1">🔄</button>
+            <button onClick={exportarCSV} className="bg-[#f6f6f4] border border-[#e5e7eb] hover:bg-[#e5e7eb] rounded-lg px-3 py-1">📥 CSV</button>
           </div>
         </div>
 
-        {erro && <div className="mb-4 bg-red-900/40 border border-red-700 rounded-xl p-3 text-sm">{erro}</div>}
+        {erro && <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">{erro}</div>}
 
         <div className="flex gap-2 mb-6 flex-wrap">
           {(
@@ -317,7 +319,7 @@ export default function AdminPage() {
             <button
               key={kk}
               onClick={() => setAba(kk)}
-              className={`rounded-xl px-4 py-2 font-medium ${aba === kk ? 'bg-amber-600' : 'bg-gray-900 hover:bg-gray-800'}`}
+              className={`rounded-xl px-4 py-2 font-medium ${aba === kk ? 'bg-[#1c52f8] text-white' : 'bg-white border border-[#e5e7eb] hover:bg-[#eef0f4]'}`}
             >
               {label}
             </button>
@@ -347,15 +349,15 @@ export default function AdminPage() {
                   <AreaChart data={dash.series.previsao_receita}>
                     <defs>
                       <linearGradient id="gPrev" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#d97706" stopOpacity={0.7} />
-                        <stop offset="100%" stopColor="#d97706" stopOpacity={0.05} />
+                        <stop offset="0%" stopColor="#1c52f8" stopOpacity={0.7} />
+                        <stop offset="100%" stopColor="#1c52f8" stopOpacity={0.05} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
                     <YAxis stroke="#6b7280" fontSize={11} />
                     <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => brl(Number(v))} />
-                    <Area type="monotone" dataKey="valor" stroke="#f59e0b" fill="url(#gPrev)" name="Receita" />
+                    <Area type="monotone" dataKey="valor" stroke="#1c52f8" fill="url(#gPrev)" name="Receita" />
                   </AreaChart>
                 </ResponsiveContainer>
               </GraficoBox>
@@ -363,11 +365,11 @@ export default function AdminPage() {
               <GraficoBox titulo="🏪 Novas barbearias por mês">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dash.series.crescimento}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
                     <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <Bar dataKey="novas" fill="#f59e0b" radius={[6, 6, 0, 0]} name="Novas" />
+                    <Bar dataKey="novas" fill="#1c52f8" radius={[6, 6, 0, 0]} name="Novas" />
                   </BarChart>
                 </ResponsiveContainer>
               </GraficoBox>
@@ -375,7 +377,7 @@ export default function AdminPage() {
               <GraficoBox titulo="💵 GMV das barbearias por mês (serviços concluídos)">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dash.series.gmv}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
                     <YAxis stroke="#6b7280" fontSize={11} />
                     <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => brl(Number(v))} />
@@ -387,7 +389,7 @@ export default function AdminPage() {
               <GraficoBox titulo="📅 Agendamentos por mês">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dash.series.agendamentos}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
                     <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
                     <Tooltip contentStyle={tooltipStyle} />
@@ -402,21 +404,21 @@ export default function AdminPage() {
         {aba === 'barbearias' && dash && (
           <div className="space-y-3">
             {dash.barbearias.map(b => (
-              <div key={b.codigo} className="bg-gray-900 rounded-2xl p-4">
+              <div key={b.codigo} className="bg-white border border-[#e5e7eb] rounded-2xl p-4">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
                     <p className="font-semibold">
                       {b.evolution_status === 'conectado' ? '🟢' : b.evolution_status === 'conectando' ? '🟡' : '🔴'}{' '}
                       {b.nome_barbearia}
-                      {!b.sistema_ativo && <span className="text-red-400 text-sm ml-2">⏸️</span>}
-                      {b.bloqueado_pagamento && <span className="text-red-400 text-sm ml-2">💳 pagamento pendente</span>}
-                      {b.cobranca_ativa && !b.bloqueado_pagamento && <span className="text-green-400 text-sm ml-2">💳 cobrança ativa</span>}
+                      {!b.sistema_ativo && <span className="text-red-600 text-sm ml-2">⏸️</span>}
+                      {b.bloqueado_pagamento && <span className="text-red-600 text-sm ml-2">💳 pagamento pendente</span>}
+                      {b.cobranca_ativa && !b.bloqueado_pagamento && <span className="text-emerald-600 text-sm ml-2">💳 cobrança ativa</span>}
                     </p>
-                    <p className="text-gray-400 text-sm font-mono">
+                    <p className="text-[#5b6472] text-sm font-mono">
                       {b.codigo} · desde {new Date(b.criado_em).toLocaleDateString('pt-BR')}
                     </p>
                   </div>
-                  <div className="flex gap-4 text-sm text-gray-300">
+                  <div className="flex gap-4 text-sm text-[#5b6472]">
                     <span>👥 {b.total_clientes}</span>
                     <span>📅 {b.agendamentos_30d}/30d</span>
                     <span>💵 {brl(b.receita_gerada)}</span>
@@ -427,7 +429,7 @@ export default function AdminPage() {
                     value={b.plano?.id || ''}
                     disabled={salvandoPlano}
                     onChange={e => acao({ acao: 'definir-plano', codigo: b.codigo, plano_id: e.target.value || null })}
-                    className="bg-gray-800 rounded-lg px-3 py-2"
+                    className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2"
                   >
                     <option value="">— sem plano —</option>
                     {dash.planos.filter(p => p.ativo !== false).map(p => {
@@ -445,7 +447,7 @@ export default function AdminPage() {
                     value={b.status_assinatura}
                     disabled={salvandoPlano}
                     onChange={e => acao({ acao: 'status-assinatura', codigo: b.codigo, status: e.target.value })}
-                    className="bg-gray-800 rounded-lg px-3 py-2"
+                    className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2"
                   >
                     <option value="trial">trial</option>
                     <option value="ativo">ativo</option>
@@ -456,18 +458,18 @@ export default function AdminPage() {
                     onSalvar={cpf => acao({ acao: 'salvar-cpf', codigo: b.codigo, cpf_cnpj: cpf })}
                   />
                   {b.plano && b.meses_restantes > 0 && (
-                    <span className="text-gray-400">
+                    <span className="text-[#5b6472]">
                       contrato: {b.meses_restantes} meses restantes ({brl(parseFloat(String(b.plano.preco_mensal)) * b.meses_restantes)} a receber)
                     </span>
                   )}
                   <div className="ml-auto flex items-center gap-3">
                     <button
                       onClick={() => setDetalheCodigo(b.codigo)}
-                      className="bg-amber-600 hover:bg-amber-500 rounded-lg px-3 py-2 font-medium"
+                      className="bg-[#1c52f8] hover:bg-[#1746d8] text-white rounded-lg px-3 py-2 font-medium"
                     >
                       📊 Dashboard completo
                     </button>
-                    <a href={`/painel/${b.codigo}`} className="text-amber-500 hover:underline">
+                    <a href={`/painel/${b.codigo}`} className="text-[#1c52f8] hover:underline">
                       painel →
                     </a>
                   </div>
@@ -483,13 +485,13 @@ export default function AdminPage() {
               value={busca}
               onChange={e => setBusca(e.target.value)}
               placeholder="🔎 Buscar por nome, telefone ou barbearia..."
-              className="w-full bg-gray-900 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full bg-white border border-[#e5e7eb] rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#1c52f8]"
             />
-            <p className="text-gray-500 text-sm">{clientesFiltrados.length} cliente(s)</p>
-            <div className="bg-gray-900 rounded-2xl overflow-x-auto">
+            <p className="text-[#5b6472] text-sm">{clientesFiltrados.length} cliente(s)</p>
+            <div className="bg-white border border-[#e5e7eb] rounded-2xl overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-gray-400 border-b border-gray-800">
+                  <tr className="text-left text-[#5b6472] border-b border-[#e5e7eb]">
                     <th className="p-3">Cliente</th>
                     <th className="p-3">Telefone</th>
                     <th className="p-3">Barbearia</th>
@@ -499,14 +501,14 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {clientesFiltrados.slice(0, 200).map((c, i) => (
-                    <tr key={i} className="border-b border-gray-800/50">
+                    <tr key={i} className="border-b border-[#e5e7eb]/50">
                       <td className="p-3">{c.nome}</td>
-                      <td className="p-3 font-mono text-gray-400">{c.telefone}</td>
+                      <td className="p-3 font-mono text-[#5b6472]">{c.telefone}</td>
                       <td className="p-3">{c.barbearia}</td>
-                      <td className="p-3 text-gray-400">
+                      <td className="p-3 text-[#5b6472]">
                         {c.ultimo_atendimento ? new Date(c.ultimo_atendimento).toLocaleDateString('pt-BR') : '—'}
                       </td>
-                      <td className="p-3 text-gray-400">
+                      <td className="p-3 text-[#5b6472]">
                         {c.ultima_conversa ? new Date(c.ultima_conversa).toLocaleDateString('pt-BR') : '—'}
                       </td>
                     </tr>
@@ -519,7 +521,7 @@ export default function AdminPage() {
 
         {aba === 'planos' && dash && (
           <div className="space-y-3 max-w-3xl">
-            <p className="text-gray-400 text-sm">
+            <p className="text-[#5b6472] text-sm">
               Ao alterar o valor de um plano, todas as assinaturas ativas dele são atualizadas automaticamente no Asaas.
             </p>
             {dash.planos.filter(p => p.ativo !== false).map(p => (
@@ -530,15 +532,15 @@ export default function AdminPage() {
         )}
 
         {aba === 'central' && (
-          <div className="bg-gray-900 rounded-2xl p-6 max-w-xl space-y-4">
+          <div className="bg-white border border-[#e5e7eb] rounded-2xl p-6 max-w-xl space-y-4">
             <p className="font-semibold">📱 Número central do BarberIA (canal do barbeiro)</p>
-            <div className="bg-gray-800 rounded-xl p-4 space-y-1 text-sm">
+            <div className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-xl p-4 space-y-1 text-sm">
               <p>Estado: {centralState === 'open' ? '🟢 conectado' : `🔴 ${centralState || '...'}`}</p>
-              {centralNumero && <p className="text-gray-400">Número atual: <span className="font-mono text-amber-400">{centralNumero}</span></p>}
-              <p className="text-green-300">🔒 {barbeirosTotal} barbeiro(s) e todas as barbearias/clientes protegidos no banco de dados.</p>
+              {centralNumero && <p className="text-[#5b6472]">Número atual: <span className="font-mono text-[#1c52f8]">{centralNumero}</span></p>}
+              <p className="text-emerald-600">🔒 {barbeirosTotal} barbeiro(s) e todas as barbearias/clientes protegidos no banco de dados.</p>
             </div>
 
-            <div className="bg-green-900/20 border border-green-800/50 rounded-xl p-4 text-sm text-green-200">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800">
               ✅ <b>Trocar o número NÃO apaga nada.</b> Os barbeiros são reconhecidos pelo telefone deles, não por este número. Você pode colocar um número novo (perdeu o chip, trocou de aparelho) que todos os barbeiros, barbearias e clientes continuam no mesmo banco de dados.
             </div>
 
@@ -546,16 +548,16 @@ export default function AdminPage() {
               <div className="text-center space-y-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qr} alt="QR BarberIA" className="mx-auto rounded-xl bg-white p-3 w-64 h-64 object-contain" />
-                <p className="text-gray-400 text-sm">Escaneie com o WhatsApp do número que será o BarberIA.</p>
+                <p className="text-[#5b6472] text-sm">Escaneie com o WhatsApp do número que será o BarberIA.</p>
               </div>
             )}
             {pairingCentral && modoCodigoCentral && (
-              <div className="space-y-3 bg-gray-800 rounded-xl p-5 text-center">
-                <p className="text-gray-200 font-medium">Digite este código no WhatsApp:</p>
-                <p className="font-mono text-4xl font-bold tracking-widest text-amber-400">
+              <div className="space-y-3 bg-[#f6f6f4] border border-[#e5e7eb] rounded-xl p-5 text-center">
+                <p className="text-[#16181d] font-medium">Digite este código no WhatsApp:</p>
+                <p className="font-mono text-4xl font-bold tracking-widest text-[#1c52f8]">
                   {pairingCentral.slice(0, 4)}-{pairingCentral.slice(4)}
                 </p>
-                <p className="text-gray-400 text-sm text-left leading-relaxed">
+                <p className="text-[#5b6472] text-sm text-left leading-relaxed">
                   No celular do número: WhatsApp → <b>Configurações</b> → <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> → <b>&quot;Conectar com número de telefone&quot;</b> → digite o código.
                 </p>
               </div>
@@ -565,14 +567,14 @@ export default function AdminPage() {
               <button
                 onClick={() => gerarQrCentral()}
                 disabled={gerandoQr}
-                className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-xl px-4 py-3 font-medium w-full"
+                className="bg-[#1c52f8] hover:bg-[#1746d8] text-white disabled:opacity-50 rounded-xl px-4 py-3 font-medium w-full"
               >
                 {gerandoQr ? 'Gerando...' : qr ? '🔄 Gerar novo QR Code' : '📲 Colocar / trocar número (QR Code)'}
               </button>
             )}
 
-            <div className="bg-gray-800/60 rounded-xl p-4 space-y-3">
-              <button onClick={() => { setModoCodigoCentral(!modoCodigoCentral); setQr(null); setPairingCentral(null) }} className="text-amber-500 hover:underline text-sm">
+            <div className="bg-[#f6f6f4] border border-[#e5e7eb]/60 rounded-xl p-4 space-y-3">
+              <button onClick={() => { setModoCodigoCentral(!modoCodigoCentral); setQr(null); setPairingCentral(null) }} className="text-[#1c52f8] hover:underline text-sm">
                 {modoCodigoCentral ? '← Voltar para o QR Code' : '📞 Conectar com código (iPhone / mais fácil)'}
               </button>
               {modoCodigoCentral && (
@@ -582,12 +584,12 @@ export default function AdminPage() {
                     onChange={e => setNumeroCentralNovo(e.target.value)}
                     placeholder="Número novo com DDD (ex.: 11 99999-8888)"
                     inputMode="tel"
-                    className="w-full bg-gray-900 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full bg-white border border-[#e5e7eb] rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-[#1c52f8]"
                   />
                   <button
                     onClick={() => numeroCentralNovo.trim() && gerarQrCentral(numeroCentralNovo)}
                     disabled={gerandoQr || !numeroCentralNovo.trim()}
-                    className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-xl py-3 font-semibold"
+                    className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white disabled:opacity-50 rounded-xl py-3 font-semibold"
                   >
                     {gerandoQr ? 'Gerando código...' : '🔢 Gerar código de 8 dígitos'}
                   </button>
@@ -606,18 +608,18 @@ export default function AdminPage() {
 }
 
 const ESTILO_INSIGHT: Record<Insight['nivel'], { cls: string; icone: string }> = {
-  alerta: { cls: 'bg-red-900/25 border-red-700/60', icone: '🔴' },
-  atencao: { cls: 'bg-amber-900/25 border-amber-700/60', icone: '🟠' },
-  dica: { cls: 'bg-blue-900/25 border-blue-700/60', icone: '💡' },
-  bom: { cls: 'bg-green-900/25 border-green-700/60', icone: '✅' },
+  alerta: { cls: 'bg-red-50 border-red-200', icone: '🔴' },
+  atencao: { cls: 'bg-amber-50 border-amber-200', icone: '🟠' },
+  dica: { cls: 'bg-blue-50 border-blue-200', icone: '💡' },
+  bom: { cls: 'bg-emerald-50 border-emerald-200', icone: '✅' },
 }
 
 function MiniCard({ titulo, valor, sub, cor }: { titulo: string; valor: string; sub?: string; cor?: string }) {
   return (
-    <div className="bg-gray-800 rounded-xl p-3">
-      <p className="text-[11px] text-gray-400 leading-tight">{titulo}</p>
+    <div className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-xl p-3">
+      <p className="text-[11px] text-[#5b6472] leading-tight">{titulo}</p>
       <p className={`text-xl font-bold mt-1 ${cor || ''}`}>{valor}</p>
-      {sub && <p className="text-[11px] text-gray-500 mt-0.5">{sub}</p>}
+      {sub && <p className="text-[11px] text-[#5b6472] mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -646,46 +648,46 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-start md:items-center justify-center p-2 md:p-6 overflow-y-auto" onClick={onClose}>
-      <div className="bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-5xl my-4" onClick={e => e.stopPropagation()}>
+      <div className="bg-white border border-[#e5e7eb] rounded-2xl w-full max-w-5xl my-4" onClick={e => e.stopPropagation()}>
         {/* cabeçalho */}
-        <div className="flex items-start justify-between gap-3 p-5 border-b border-gray-800 sticky top-0 bg-gray-950 rounded-t-2xl z-10">
+        <div className="flex items-start justify-between gap-3 p-5 border-b border-[#e5e7eb] sticky top-0 bg-white rounded-t-2xl z-10">
           <div>
             <h2 className="text-xl font-bold">
               {wsOk ? '🟢' : '🔴'} {t?.nome_barbearia || codigo}
             </h2>
-            <p className="text-sm text-gray-400 font-mono">
+            <p className="text-sm text-[#5b6472] font-mono">
               {codigo}
               {t && ` · desde ${new Date(t.criado_em).toLocaleDateString('pt-BR')}`}
               {t?.barbeiro && ` · ${t.barbeiro.nome}`}
             </p>
           </div>
-          <button onClick={onClose} className="bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-1.5 text-sm shrink-0">✕ fechar</button>
+          <button onClick={onClose} className="bg-[#f6f6f4] border border-[#e5e7eb] hover:bg-[#e5e7eb] rounded-lg px-3 py-1.5 text-sm shrink-0">✕ fechar</button>
         </div>
 
-        {erro && <div className="m-5 bg-red-900/40 border border-red-700 rounded-xl p-3 text-sm">{erro}</div>}
-        {!d && !erro && <div className="p-10 text-center text-gray-400">Carregando dashboard...</div>}
+        {erro && <div className="m-5 bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">{erro}</div>}
+        {!d && !erro && <div className="p-10 text-center text-[#5b6472]">Carregando dashboard...</div>}
 
         {d && (
           <div className="p-5 space-y-6">
             {/* status geral */}
             <div className="flex flex-wrap gap-2 text-xs">
-              <span className={`rounded-full px-3 py-1 ${wsOk ? 'bg-green-900/40 text-green-300' : 'bg-red-900/40 text-red-300'}`}>
+              <span className={`rounded-full px-3 py-1 ${wsOk ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                 WhatsApp: {wsOk ? 'conectado' : t?.whatsapp_state || 'desconhecido'}
               </span>
-              <span className={`rounded-full px-3 py-1 ${t?.plano ? 'bg-amber-900/40 text-amber-300' : 'bg-gray-800 text-gray-400'}`}>
+              <span className={`rounded-full px-3 py-1 ${t?.plano ? 'bg-amber-100 text-amber-700' : 'bg-[#f6f6f4] border border-[#e5e7eb] text-[#5b6472]'}`}>
                 {t?.plano ? `Plano ${t.plano.nome} · ${brl(t.plano.valor_cobranca)}` : 'Sem plano'}
               </span>
-              <span className={`rounded-full px-3 py-1 ${t?.status_assinatura === 'ativo' ? 'bg-green-900/40 text-green-300' : 'bg-gray-800 text-gray-400'}`}>
+              <span className={`rounded-full px-3 py-1 ${t?.status_assinatura === 'ativo' ? 'bg-emerald-100 text-emerald-700' : 'bg-[#f6f6f4] border border-[#e5e7eb] text-[#5b6472]'}`}>
                 {t?.status_assinatura}
               </span>
-              {t?.bloqueado_pagamento && <span className="rounded-full px-3 py-1 bg-red-900/40 text-red-300">💳 pagamento pendente</span>}
+              {t?.bloqueado_pagamento && <span className="rounded-full px-3 py-1 bg-red-100 text-red-700">💳 pagamento pendente</span>}
             </div>
 
             {/* O QUE PODE MELHORAR — em destaque */}
             <div>
-              <p className="font-semibold mb-2 text-gray-200">🎯 O que pode melhorar</p>
+              <p className="font-semibold mb-2 text-[#16181d]">🎯 O que pode melhorar</p>
               {precisaMelhorar.length === 0 ? (
-                <div className="rounded-xl border p-3 text-sm bg-green-900/25 border-green-700/60">
+                <div className="rounded-xl border p-3 text-sm bg-emerald-50 border-emerald-200">
                   ✅ Tudo certo por aqui. Barbearia conectada, com plano ativo e boa adesão à IA.
                 </div>
               ) : (
@@ -695,7 +697,7 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
                     return (
                       <div key={idx} className={`rounded-xl border p-3 ${e.cls}`}>
                         <p className="font-medium text-sm">{e.icone} {i.titulo}</p>
-                        <p className="text-xs text-gray-300 mt-0.5">{i.detalhe}</p>
+                        <p className="text-xs text-[#5b6472] mt-0.5">{i.detalhe}</p>
                       </div>
                     )
                   })}
@@ -705,25 +707,25 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
 
             {/* KPIs de clientes / crescimento */}
             <div>
-              <p className="font-semibold mb-2 text-gray-300">👥 Clientes & crescimento</p>
+              <p className="font-semibold mb-2 text-[#5b6472]">👥 Clientes & crescimento</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <MiniCard titulo="Clientes na base" valor={String(k.clientes_total)} />
-                <MiniCard titulo="Novos (30 dias)" valor={`+${k.clientes_novos_30d}`} cor="text-green-400" />
-                <MiniCard titulo="Fidelizados (2+ visitas)" valor={String(k.clientes_fidelizados)} cor="text-amber-400" />
-                <MiniCard titulo="Inativos (+30 dias)" valor={String(k.clientes_inativos)} cor={k.clientes_inativos > 0 ? 'text-red-400' : ''} sub="oportunidade de resgate" />
+                <MiniCard titulo="Novos (30 dias)" valor={`+${k.clientes_novos_30d}`} cor="text-emerald-600" />
+                <MiniCard titulo="Fidelizados (2+ visitas)" valor={String(k.clientes_fidelizados)} cor="text-[#1c52f8]" />
+                <MiniCard titulo="Inativos (+30 dias)" valor={String(k.clientes_inativos)} cor={k.clientes_inativos > 0 ? 'text-red-600' : ''} sub="oportunidade de resgate" />
               </div>
             </div>
 
             {/* KPIs de agendamentos */}
             <div>
-              <p className="font-semibold mb-2 text-gray-300">📅 Agendamentos</p>
+              <p className="font-semibold mb-2 text-[#5b6472]">📅 Agendamentos</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <MiniCard titulo="Total" valor={String(k.agendamentos_total)} />
                 <MiniCard titulo="No mês atual" valor={String(k.agendamentos_mes)} />
-                <MiniCard titulo="Futuros (agendados)" valor={String(k.agendamentos_futuros)} cor="text-blue-400" />
-                <MiniCard titulo="Concluídos" valor={String(k.concluidos)} cor="text-green-400" />
+                <MiniCard titulo="Futuros (agendados)" valor={String(k.agendamentos_futuros)} cor="text-blue-600" />
+                <MiniCard titulo="Concluídos" valor={String(k.concluidos)} cor="text-emerald-600" />
                 <MiniCard titulo="Taxa de confirmação" valor={`${k.taxa_confirmacao}%`} />
-                <MiniCard titulo="Taxa de cancelamento" valor={`${k.taxa_cancelamento}%`} cor={k.taxa_cancelamento > 20 ? 'text-red-400' : ''} />
+                <MiniCard titulo="Taxa de cancelamento" valor={`${k.taxa_cancelamento}%`} cor={k.taxa_cancelamento > 20 ? 'text-red-600' : ''} />
                 <MiniCard titulo="Serviços ativos" valor={String(k.servicos_ativos)} />
                 <MiniCard titulo="Dias de atendimento" valor={`${k.dias_configurados}/7`} />
               </div>
@@ -731,13 +733,13 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
 
             {/* KPIs de faturamento / impacto da IA */}
             <div>
-              <p className="font-semibold mb-2 text-gray-300">💰 Faturamento & impacto da IA</p>
+              <p className="font-semibold mb-2 text-[#5b6472]">💰 Faturamento & impacto da IA</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <MiniCard titulo="Faturamento total" valor={brl(k.gmv_total)} sub="serviços concluídos" />
-                <MiniCard titulo="Gerado pela IA" valor={brl(k.gmv_ia)} cor="text-amber-400" sub={`${k.pct_gmv_ia}% do total`} />
-                <MiniCard titulo="Novos clientes pela IA" valor={String(k.novos_ia)} cor="text-amber-400" sub="1ª vez, via WhatsApp" />
-                <MiniCard titulo="Resgatados pela IA" valor={String(k.resgatados_ia)} cor="text-green-400" sub="sumidos que voltaram (barba 15d/corte 30d)" />
-                <MiniCard titulo="Agendamentos via IA" valor={`${k.pct_ags_ia}%`} cor="text-amber-400" sub="do total de agendamentos" />
+                <MiniCard titulo="Gerado pela IA" valor={brl(k.gmv_ia)} cor="text-[#1c52f8]" sub={`${k.pct_gmv_ia}% do total`} />
+                <MiniCard titulo="Novos clientes pela IA" valor={String(k.novos_ia)} cor="text-[#1c52f8]" sub="1ª vez, via WhatsApp" />
+                <MiniCard titulo="Resgatados pela IA" valor={String(k.resgatados_ia)} cor="text-emerald-600" sub="sumidos que voltaram (barba 15d/corte 30d)" />
+                <MiniCard titulo="Agendamentos via IA" valor={`${k.pct_ags_ia}%`} cor="text-[#1c52f8]" sub="do total de agendamentos" />
                 <MiniCard titulo="Resgates enviados" valor={String(k.resgates_enviados)} sub="convites de retorno" />
               </div>
             </div>
@@ -747,18 +749,18 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
               <GraficoBox titulo="📈 Novos clientes por mês">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={d.series.clientes}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
                     <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <Bar dataKey="qtd" fill="#f59e0b" radius={[6, 6, 0, 0]} name="Clientes" />
+                    <Bar dataKey="qtd" fill="#1c52f8" radius={[6, 6, 0, 0]} name="Clientes" />
                   </BarChart>
                 </ResponsiveContainer>
               </GraficoBox>
               <GraficoBox titulo="📅 Agendamentos por mês">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={d.series.agendamentos}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
                     <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
                     <Tooltip contentStyle={tooltipStyle} />
@@ -769,7 +771,7 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
               <GraficoBox titulo="💵 Faturamento por mês">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={d.series.faturamento}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
                     <YAxis stroke="#6b7280" fontSize={11} />
                     <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => brl(Number(v))} />
@@ -777,10 +779,10 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
                   </BarChart>
                 </ResponsiveContainer>
               </GraficoBox>
-              <div className="bg-gray-900 rounded-2xl p-4">
-                <p className="font-medium mb-3 text-gray-300">🏆 Serviços mais pedidos</p>
+              <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4">
+                <p className="font-medium mb-3 text-[#5b6472]">🏆 Serviços mais pedidos</p>
                 {d.ranking_servicos.length === 0 ? (
-                  <p className="text-gray-500 text-sm">Nenhum serviço concluído ainda.</p>
+                  <p className="text-[#5b6472] text-sm">Nenhum serviço concluído ainda.</p>
                 ) : (
                   <div className="space-y-2">
                     {d.ranking_servicos.map((s, i) => {
@@ -788,11 +790,11 @@ function DashboardBarbearia({ codigo, senha, onClose }: { codigo: string; senha:
                       return (
                         <div key={i}>
                           <div className="flex justify-between text-sm mb-1">
-                            <span className="text-gray-300">{i + 1}. {s.nome}</span>
-                            <span className="text-gray-400">{s.qtd}x</span>
+                            <span className="text-[#5b6472]">{i + 1}. {s.nome}</span>
+                            <span className="text-[#5b6472]">{s.qtd}x</span>
                           </div>
-                          <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.round((100 * s.qtd) / max)}%` }} />
+                          <div className="h-2 bg-[#f6f6f4] border border-[#e5e7eb] rounded-full overflow-hidden">
+                            <div className="h-full bg-[#1c52f8] rounded-full" style={{ width: `${Math.round((100 * s.qtd) / max)}%` }} />
                           </div>
                         </div>
                       )
@@ -818,10 +820,10 @@ function CpfInput({ valorInicial, onSalvar }: { valorInicial: string; onSalvar: 
         onChange={e => setCpf(e.target.value)}
         placeholder="CPF/CNPJ (p/ cobrança)"
         inputMode="numeric"
-        className="bg-gray-800 rounded-lg px-3 py-2 w-48 text-sm"
+        className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2 w-48 text-sm"
       />
       {mudou && cpf.replace(/\D/g, '').length >= 11 && (
-        <button onClick={() => onSalvar(cpf)} className="bg-gray-700 hover:bg-gray-600 rounded-lg px-2 py-2 text-sm">
+        <button onClick={() => onSalvar(cpf)} className="bg-[#e5e7eb] hover:bg-[#d8dbe0] rounded-lg px-2 py-2 text-sm">
           💾
         </button>
       )}
@@ -841,35 +843,35 @@ function PlanoEditor({ plano, onSalvar }: { plano: Plano | null; onSalvar: (p: R
   const anual = (parseInt(meses) || 1) >= 12
 
   return (
-    <div className="bg-gray-900 rounded-2xl p-4 space-y-3">
+    <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4 space-y-3">
       <div className="flex items-end gap-3 flex-wrap">
         <div className="flex-1 min-w-40">
-          <label className="text-xs text-gray-400">Nome</label>
-          <input value={nome} onChange={e => setNome(e.target.value)} placeholder={plano ? '' : 'Novo plano...'} className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1" />
+          <label className="text-xs text-[#5b6472]">Nome</label>
+          <input value={nome} onChange={e => setNome(e.target.value)} placeholder={plano ? '' : 'Novo plano...'} className="w-full bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2 mt-1" />
         </div>
         <div className="w-32">
-          <label className="text-xs text-gray-400">Valor cobrado R$</label>
-          <input value={valor} onChange={e => setValor(e.target.value)} inputMode="decimal" className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1" />
+          <label className="text-xs text-[#5b6472]">Valor cobrado R$</label>
+          <input value={valor} onChange={e => setValor(e.target.value)} inputMode="decimal" className="w-full bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2 mt-1" />
         </div>
         <div className="w-24">
-          <label className="text-xs text-gray-400">Meses</label>
-          <input value={meses} onChange={e => setMeses(e.target.value)} inputMode="numeric" className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1" />
+          <label className="text-xs text-[#5b6472]">Meses</label>
+          <input value={meses} onChange={e => setMeses(e.target.value)} inputMode="numeric" className="w-full bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2 mt-1" />
         </div>
         <div className="w-36">
-          <label className="text-xs text-gray-400">Valor cheio (p/ desconto)</label>
-          <input value={cheio} onChange={e => setCheio(e.target.value)} inputMode="decimal" placeholder="opcional" className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1" />
+          <label className="text-xs text-[#5b6472]">Valor cheio (p/ desconto)</label>
+          <input value={cheio} onChange={e => setCheio(e.target.value)} inputMode="decimal" placeholder="opcional" className="w-full bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2 mt-1" />
         </div>
         <button
           onClick={() => nome && valor && onSalvar({ id: plano?.id, nome, valor_cobranca: valor, duracao_meses: meses, valor_cheio: cheio || null })}
-          className="bg-amber-600 hover:bg-amber-500 rounded-lg px-4 py-2 font-medium"
+          className="bg-[#1c52f8] hover:bg-[#1746d8] text-white rounded-lg px-4 py-2 font-medium"
         >
           💾 {plano ? 'Salvar' : 'Criar'}
         </button>
       </div>
       <div className="flex items-center gap-3 text-xs">
-        <span className="text-gray-400">{anual ? '📅 Anual (Pix ou Cartão)' : '📅 Mensal recorrente (Cartão)'}</span>
-        {descPct && <span className="bg-green-900/50 text-green-300 rounded-full px-3 py-1 font-semibold">💰 {descPct}% OFF · economia de {brl(c - v)}</span>}
-        {plano?.metodos_pagamento && <span className="text-gray-500">· {plano.metodos_pagamento}</span>}
+        <span className="text-[#5b6472]">{anual ? '📅 Anual (Pix ou Cartão)' : '📅 Mensal recorrente (Cartão)'}</span>
+        {descPct && <span className="bg-emerald-100 text-emerald-700 rounded-full px-3 py-1 font-semibold">💰 {descPct}% OFF · economia de {brl(c - v)}</span>}
+        {plano?.metodos_pagamento && <span className="text-[#5b6472]">· {plano.metodos_pagamento}</span>}
       </div>
     </div>
   )

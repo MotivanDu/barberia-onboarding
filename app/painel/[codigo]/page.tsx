@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import Logo from '../../_components/Logo'
 import {
   ResponsiveContainer,
   BarChart,
@@ -39,22 +40,22 @@ type DashData = {
 
 const brl = (v: number) =>
   (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-const tooltipStyle = { backgroundColor: '#111827', border: '1px solid #374151', borderRadius: 12, color: '#fff' }
+const tooltipStyle = { backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 12, color: '#16181d' }
 
 function Kpi({ titulo, valor, sub, cor, destaque }: { titulo: string; valor: string; sub?: string; cor?: string; destaque?: boolean }) {
   return (
-    <div className={`rounded-2xl p-4 ${destaque ? 'bg-amber-600' : 'bg-gray-900'}`}>
-      <p className={`text-xs leading-tight ${destaque ? 'text-amber-100' : 'text-gray-400'}`}>{titulo}</p>
-      <p className={`text-2xl font-bold mt-1 ${cor || ''}`}>{valor}</p>
-      {sub && <p className={`text-[11px] mt-0.5 ${destaque ? 'text-amber-100' : 'text-gray-500'}`}>{sub}</p>}
+    <div className={`rounded-2xl p-4 border ${destaque ? 'bg-[#1c52f8] border-[#1c52f8] text-white' : 'bg-white border-[#e5e7eb]'}`}>
+      <p className={`text-xs leading-tight ${destaque ? 'text-blue-100' : 'text-[#5b6472]'}`}>{titulo}</p>
+      <p className={`text-2xl font-bold mt-1 ${destaque ? 'text-white' : (cor || '')}`}>{valor}</p>
+      {sub && <p className={`text-[11px] mt-0.5 ${destaque ? 'text-blue-100' : 'text-[#5b6472]'}`}>{sub}</p>}
     </div>
   )
 }
 
 function ChartBox({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div className="bg-gray-900 rounded-2xl p-4">
-      <p className="font-medium mb-3 text-gray-300 text-sm">{titulo}</p>
+    <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4">
+      <p className="font-medium mb-3 text-[#5b6472] text-sm">{titulo}</p>
       <div className="h-52">{children}</div>
     </div>
   )
@@ -221,13 +222,14 @@ export default function PainelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-[#f6f6f4] text-[#16181d]">
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold">💈 {nome || 'BarberIA'}</h1>
-          <p className="text-gray-400 text-sm">
-            Código: <span className="font-mono text-amber-500">{codigo}</span>
-            {!sistemaAtivo && <span className="ml-2 text-red-400">⏸️ sistema desativado</span>}
+          <div className="flex justify-center mb-3"><Logo theme="light" className="h-9 w-auto" /></div>
+          <h1 className="text-2xl font-bold">{nome || 'BarberIA'}</h1>
+          <p className="text-[#5b6472] text-sm">
+            Código: <span className="font-mono text-[#1c52f8]">{codigo}</span>
+            {!sistemaAtivo && <span className="ml-2 text-red-600">⏸️ sistema desativado</span>}
           </p>
         </div>
 
@@ -243,23 +245,23 @@ export default function PainelPage() {
             <button
               key={k}
               onClick={() => setAba(k)}
-              className={`rounded-xl py-3 text-sm font-medium ${aba === k ? 'bg-amber-600' : 'bg-gray-900 hover:bg-gray-800'}`}
+              className={`rounded-xl py-3 text-sm font-medium ${aba === k ? 'bg-[#1c52f8] text-white' : 'bg-white border border-[#e5e7eb] hover:bg-[#eef0f4]'}`}
             >
               {label}
             </button>
           ))}
         </div>
 
-        {msg && <div className="mb-4 bg-gray-900 rounded-xl p-3 text-center text-sm">{msg}</div>}
-        {carregando && aba !== 'relatorio' && <p className="text-center text-gray-400 py-10">Carregando...</p>}
+        {msg && <div className="mb-4 bg-white border border-[#e5e7eb] rounded-xl p-3 text-center text-sm">{msg}</div>}
+        {carregando && aba !== 'relatorio' && <p className="text-center text-[#5b6472] py-10">Carregando...</p>}
 
         {aba === 'relatorio' && (
           !dash ? (
-            <p className="text-center text-gray-400 py-10">Carregando relatório...</p>
+            <p className="text-center text-[#5b6472] py-10">Carregando relatório...</p>
           ) : (
             <div className="space-y-5">
               <div className="text-center -mt-2 mb-1">
-                <p className="text-gray-400 text-sm">
+                <p className="text-[#5b6472] text-sm">
                   {dash.barbeiro ? `Olá, ${dash.barbeiro.split(' ')[0]}! ` : ''}
                   Aqui está o resultado da sua barbearia com o BarberIA.
                 </p>
@@ -267,7 +269,7 @@ export default function PainelPage() {
 
               {/* RECEITA */}
               <div>
-                <p className="font-semibold mb-2 text-gray-300 text-sm">💰 Receita gerada</p>
+                <p className="font-semibold mb-2 text-[#5b6472] text-sm">💰 Receita gerada</p>
                 <div className="grid grid-cols-3 gap-2">
                   <Kpi destaque titulo="Total" valor={brl(dash.kpis.receita_total)} sub={`ticket médio ${brl(dash.kpis.ticket_medio)}`} />
                   <Kpi titulo="Este mês" valor={brl(dash.kpis.receita_mes)} />
@@ -277,36 +279,36 @@ export default function PainelPage() {
 
               {/* IMPACTO DO BARBERIA */}
               <div>
-                <p className="font-semibold mb-2 text-gray-300 text-sm">🤖 O BarberIA trabalhando por você</p>
+                <p className="font-semibold mb-2 text-[#5b6472] text-sm">🤖 O BarberIA trabalhando por você</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <Kpi titulo="Novos clientes pela IA" valor={String(dash.kpis.novos_ia)} cor="text-amber-400" sub="1ª vez, trazidos pelo WhatsApp" />
-                  <Kpi titulo="Clientes resgatados pela IA" valor={String(dash.kpis.resgatados_ia)} cor="text-green-400" sub="estavam sumidos e voltaram" />
+                  <Kpi titulo="Novos clientes pela IA" valor={String(dash.kpis.novos_ia)} cor="text-[#1c52f8]" sub="1ª vez, trazidos pelo WhatsApp" />
+                  <Kpi titulo="Clientes resgatados pela IA" valor={String(dash.kpis.resgatados_ia)} cor="text-emerald-600" sub="estavam sumidos e voltaram" />
                   <Kpi titulo="Pessoas atendidas no WhatsApp" valor={String(dash.kpis.alcance_ia)} sub="conversaram com a IA" />
-                  <Kpi titulo="Valor gerado pela IA" valor={brl(dash.kpis.receita_ia)} cor="text-amber-400" sub={`${dash.kpis.pct_receita_ia}% da receita`} />
+                  <Kpi titulo="Valor gerado pela IA" valor={brl(dash.kpis.receita_ia)} cor="text-[#1c52f8]" sub={`${dash.kpis.pct_receita_ia}% da receita`} />
                 </div>
-                <p className="text-gray-500 text-[11px] mt-1.5 px-1">
+                <p className="text-[#5b6472] text-[11px] mt-1.5 px-1">
                   Resgate: cliente de barba parado +15 dias ou de corte parado +30 dias que voltou a agendar pela IA.
                 </p>
               </div>
 
               {/* CLIENTES */}
               <div>
-                <p className="font-semibold mb-2 text-gray-300 text-sm">👥 Clientes</p>
+                <p className="font-semibold mb-2 text-[#5b6472] text-sm">👥 Clientes</p>
                 <div className="grid grid-cols-3 gap-2">
                   <Kpi titulo="Na base" valor={String(dash.kpis.clientes_total)} />
-                  <Kpi titulo="Novos no mês" valor={`+${dash.kpis.clientes_novos_mes}`} cor="text-green-400" />
-                  <Kpi titulo="Novos na semana" valor={`+${dash.kpis.clientes_novos_semana}`} cor="text-green-400" />
+                  <Kpi titulo="Novos no mês" valor={`+${dash.kpis.clientes_novos_mes}`} cor="text-emerald-600" />
+                  <Kpi titulo="Novos na semana" valor={`+${dash.kpis.clientes_novos_semana}`} cor="text-emerald-600" />
                 </div>
               </div>
 
               {/* AGENDAMENTOS */}
               <div>
-                <p className="font-semibold mb-2 text-gray-300 text-sm">📅 Agendamentos</p>
+                <p className="font-semibold mb-2 text-[#5b6472] text-sm">📅 Agendamentos</p>
                 <div className="grid grid-cols-3 gap-2">
                   <Kpi titulo="Este mês" valor={String(dash.kpis.agendamentos_mes)} />
                   <Kpi titulo="Esta semana" valor={String(dash.kpis.agendamentos_semana)} />
-                  <Kpi titulo="Próximos (futuros)" valor={String(dash.kpis.agendamentos_futuros)} cor="text-blue-400" />
-                  <Kpi titulo="Concluídos" valor={String(dash.kpis.concluidos)} cor="text-green-400" />
+                  <Kpi titulo="Próximos (futuros)" valor={String(dash.kpis.agendamentos_futuros)} cor="text-blue-600" />
+                  <Kpi titulo="Concluídos" valor={String(dash.kpis.concluidos)} cor="text-emerald-600" />
                   <Kpi titulo="Confirmação" valor={`${dash.kpis.taxa_confirmacao}%`} />
                   <Kpi titulo="Total histórico" valor={String(dash.kpis.agendamentos_total)} />
                 </div>
@@ -316,7 +318,7 @@ export default function PainelPage() {
               <ChartBox titulo="💵 Receita por mês">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dash.series.receita}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
                     <YAxis stroke="#6b7280" fontSize={11} />
                     <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => brl(Number(v))} />
@@ -328,11 +330,11 @@ export default function PainelPage() {
               <ChartBox titulo="📈 Novos clientes por mês">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dash.series.clientes}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
                     <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <Bar dataKey="qtd" fill="#f59e0b" radius={[6, 6, 0, 0]} name="Clientes" />
+                    <Bar dataKey="qtd" fill="#1c52f8" radius={[6, 6, 0, 0]} name="Clientes" />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartBox>
@@ -340,7 +342,7 @@ export default function PainelPage() {
               <ChartBox titulo="🗓️ Atendimentos por semana (últimas 8)">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dash.series.semanas}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="label" stroke="#6b7280" fontSize={11} />
                     <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
                     <Tooltip contentStyle={tooltipStyle} />
@@ -349,10 +351,10 @@ export default function PainelPage() {
                 </ResponsiveContainer>
               </ChartBox>
 
-              <div className="bg-gray-900 rounded-2xl p-4">
-                <p className="font-medium mb-3 text-gray-300 text-sm">🏆 Serviços mais pedidos</p>
+              <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4">
+                <p className="font-medium mb-3 text-[#5b6472] text-sm">🏆 Serviços mais pedidos</p>
                 {dash.ranking_servicos.length === 0 ? (
-                  <p className="text-gray-500 text-sm">Ainda não há serviços concluídos.</p>
+                  <p className="text-[#5b6472] text-sm">Ainda não há serviços concluídos.</p>
                 ) : (
                   <div className="space-y-2">
                     {dash.ranking_servicos.map((s, i) => {
@@ -360,11 +362,11 @@ export default function PainelPage() {
                       return (
                         <div key={i}>
                           <div className="flex justify-between text-sm mb-1">
-                            <span className="text-gray-300">{i + 1}. {s.nome}</span>
-                            <span className="text-gray-400">{s.qtd}x</span>
+                            <span className="text-[#5b6472]">{i + 1}. {s.nome}</span>
+                            <span className="text-[#5b6472]">{s.qtd}x</span>
                           </div>
-                          <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.round((100 * s.qtd) / max)}%` }} />
+                          <div className="h-2 bg-[#f6f6f4] border border-[#e5e7eb] rounded-full overflow-hidden">
+                            <div className="h-full bg-[#1c52f8] rounded-full" style={{ width: `${Math.round((100 * s.qtd) / max)}%` }} />
                           </div>
                         </div>
                       )
@@ -373,7 +375,7 @@ export default function PainelPage() {
                 )}
               </div>
 
-              <p className="text-gray-500 text-xs text-center">
+              <p className="text-[#5b6472] text-xs text-center">
                 Atualiza automaticamente conforme os atendimentos acontecem.
               </p>
             </div>
@@ -383,32 +385,32 @@ export default function PainelPage() {
         {!carregando && aba === 'servicos' && (
           <div className="space-y-4">
             {servicos.map((s, i) => (
-              <div key={s.id || i} className={`bg-gray-900 rounded-2xl p-4 space-y-3 ${!s.ativo ? 'opacity-50' : ''}`}>
+              <div key={s.id || i} className={`bg-white border border-[#e5e7eb] rounded-2xl p-4 space-y-3 ${!s.ativo ? 'opacity-50' : ''}`}>
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     value={s.nome}
                     onChange={e => updServico(i, 'nome', e.target.value)}
-                    className="bg-gray-800 rounded-lg px-3 py-2 col-span-2"
+                    className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2 col-span-2"
                     placeholder="Nome do serviço"
                   />
                   <input
                     value={String(s.preco)}
                     onChange={e => updServico(i, 'preco', e.target.value)}
-                    className="bg-gray-800 rounded-lg px-3 py-2"
+                    className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2"
                     placeholder="Preço (R$)"
                     inputMode="decimal"
                   />
                   <input
                     value={String(s.duracao_minutos)}
                     onChange={e => updServico(i, 'duracao_minutos', e.target.value)}
-                    className="bg-gray-800 rounded-lg px-3 py-2"
+                    className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2"
                     placeholder="Duração (min)"
                     inputMode="numeric"
                   />
                   <select
                     value={s.categoria}
                     onChange={e => updServico(i, 'categoria', e.target.value)}
-                    className="bg-gray-800 rounded-lg px-3 py-2 col-span-2"
+                    className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-3 py-2 col-span-2"
                   >
                     {CATEGORIAS.map(c => (
                       <option key={c.value} value={c.value}>{c.label}</option>
@@ -416,10 +418,10 @@ export default function PainelPage() {
                   </select>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => salvarServico(s)} className="flex-1 bg-amber-600 hover:bg-amber-500 rounded-lg py-2 font-medium">
+                  <button onClick={() => salvarServico(s)} className="flex-1 bg-[#1c52f8] hover:bg-[#1746d8] text-white rounded-lg py-2 font-medium">
                     💾 Salvar
                   </button>
-                  <button onClick={() => alternarServico(s)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-lg py-2">
+                  <button onClick={() => alternarServico(s)} className="flex-1 bg-[#f6f6f4] border border-[#e5e7eb] hover:bg-[#e5e7eb] rounded-lg py-2">
                     {s.ativo ? '🚫 Desativar' : '✅ Reativar'}
                   </button>
                 </div>
@@ -427,18 +429,18 @@ export default function PainelPage() {
             ))}
             <button
               onClick={() => setServicos([...servicos, { nome: '', preco: '', duracao_minutos: '30', categoria: 'corte', ativo: true }])}
-              className="w-full bg-gray-900 hover:bg-gray-800 border border-dashed border-gray-700 rounded-2xl py-4"
+              className="w-full bg-white border border-[#e5e7eb] hover:bg-[#eef0f4] border border-dashed border-gray-700 rounded-2xl py-4"
             >
               ➕ Novo serviço ou promoção
             </button>
-            <p className="text-gray-500 text-xs text-center">
+            <p className="text-[#5b6472] text-xs text-center">
               Alterações valem NA HORA para o atendimento da IA no WhatsApp.
             </p>
           </div>
         )}
 
         {!carregando && aba === 'horarios' && (
-          <div className="bg-gray-900 rounded-2xl p-4 space-y-3">
+          <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4 space-y-3">
             {horarios.map(h => (
               <div key={h.dia_semana} className="flex items-center gap-3">
                 <label className="flex items-center gap-2 w-28">
@@ -447,51 +449,51 @@ export default function PainelPage() {
                     checked={h.ativo}
                     onChange={e => updHorario(h.dia_semana, 'ativo', e.target.checked)}
                   />
-                  <span className={h.ativo ? '' : 'text-gray-500'}>{DIAS[h.dia_semana]}</span>
+                  <span className={h.ativo ? '' : 'text-[#5b6472]'}>{DIAS[h.dia_semana]}</span>
                 </label>
                 <input
                   type="time"
                   value={h.hora_inicio}
                   disabled={!h.ativo}
                   onChange={e => updHorario(h.dia_semana, 'hora_inicio', e.target.value)}
-                  className="bg-gray-800 rounded-lg px-2 py-1 disabled:opacity-40"
+                  className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-2 py-1 disabled:opacity-40"
                 />
-                <span className="text-gray-500">às</span>
+                <span className="text-[#5b6472]">às</span>
                 <input
                   type="time"
                   value={h.hora_fim}
                   disabled={!h.ativo}
                   onChange={e => updHorario(h.dia_semana, 'hora_fim', e.target.value)}
-                  className="bg-gray-800 rounded-lg px-2 py-1 disabled:opacity-40"
+                  className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-lg px-2 py-1 disabled:opacity-40"
                 />
               </div>
             ))}
-            <button onClick={salvarHorarios} className="w-full bg-amber-600 hover:bg-amber-500 rounded-xl py-3 font-semibold mt-2">
+            <button onClick={salvarHorarios} className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white rounded-xl py-3 font-semibold mt-2">
               💾 Salvar horários
             </button>
           </div>
         )}
 
         {!carregando && aba === 'whatsapp' && (
-          <div className="bg-gray-900 rounded-2xl p-6 text-center space-y-4">
+          <div className="bg-white border border-[#e5e7eb] rounded-2xl p-6 text-center space-y-4">
             <p className="text-lg">{stateLabel[whats.state] || whats.state}</p>
-            <p className="text-gray-400 text-sm">
+            <p className="text-[#5b6472] text-sm">
               Este é o WhatsApp que os SEUS CLIENTES usam para falar com a barbearia.
             </p>
             {whats.state === 'open' && whats.numero && (
-              <div className="bg-gray-800 rounded-xl p-4 space-y-2">
-                <p className="text-gray-300 text-sm font-medium">📣 Link para divulgar aos clientes:</p>
-                <p className="font-mono text-amber-400 break-all">https://wa.me/{whats.numero}</p>
+              <div className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-xl p-4 space-y-2">
+                <p className="text-[#5b6472] text-sm font-medium">📣 Link para divulgar aos clientes:</p>
+                <p className="font-mono text-[#1c52f8] break-all">https://wa.me/{whats.numero}</p>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(`https://wa.me/${whats.numero}`)
                     flash('✅ Link copiado!')
                   }}
-                  className="bg-gray-700 hover:bg-gray-600 rounded-lg px-4 py-2 text-sm"
+                  className="bg-[#e5e7eb] hover:bg-[#d8dbe0] rounded-lg px-4 py-2 text-sm"
                 >
                   📋 Copiar link
                 </button>
-                <p className="text-gray-500 text-xs">
+                <p className="text-[#5b6472] text-xs">
                   Quem clicar cai direto no WhatsApp da barbearia — a IA atende, apresenta os
                   preços e agenda sozinha.
                 </p>
@@ -499,40 +501,40 @@ export default function PainelPage() {
             )}
             {qr && !modoCodigo && (
               <div className="space-y-2">
-                <p className="text-gray-200 font-medium">Escaneie com o WhatsApp da barbearia:</p>
+                <p className="text-[#16181d] font-medium">Escaneie com o WhatsApp da barbearia:</p>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qr} alt="QR Code de conexão" className="mx-auto rounded-xl bg-white p-3 w-64 h-64 object-contain" />
-                <p className="text-gray-500 text-xs">WhatsApp → Aparelhos conectados → Conectar um aparelho</p>
+                <p className="text-[#5b6472] text-xs">WhatsApp → Aparelhos conectados → Conectar um aparelho</p>
               </div>
             )}
             {pairing && modoCodigo && (
-              <div className="space-y-3 bg-gray-800 rounded-xl p-5">
-                <p className="text-gray-200 font-medium">Digite este código no WhatsApp:</p>
-                <p className="font-mono text-5xl font-bold tracking-widest text-amber-400">
+              <div className="space-y-3 bg-[#f6f6f4] border border-[#e5e7eb] rounded-xl p-5">
+                <p className="text-[#16181d] font-medium">Digite este código no WhatsApp:</p>
+                <p className="font-mono text-5xl font-bold tracking-widest text-[#1c52f8]">
                   {pairing.slice(0, 4)}-{pairing.slice(4)}
                 </p>
-                <p className="text-gray-400 text-sm text-left leading-relaxed">
+                <p className="text-[#5b6472] text-sm text-left leading-relaxed">
                   No celular da barbearia:<br />
                   1. WhatsApp → <b>Configurações</b> → <b>Aparelhos conectados</b><br />
                   2. <b>Conectar um aparelho</b><br />
                   3. Toque em <b>"Conectar com número de telefone"</b><br />
                   4. Digite o código acima
                 </p>
-                <p className="text-gray-500 text-xs">O código expira rápido — se não der tempo, gere outro.</p>
+                <p className="text-[#5b6472] text-xs">O código expira rápido — se não der tempo, gere outro.</p>
               </div>
             )}
             {whats.state !== 'open' && !modoCodigo && (
               <button
                 onClick={() => conectarWhats('conectar')}
                 disabled={gerandoQr}
-                className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-xl py-3 font-semibold"
+                className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white disabled:opacity-50 rounded-xl py-3 font-semibold"
               >
                 {gerandoQr ? 'Gerando QR Code...' : qr ? '🔄 Gerar novo QR Code' : '📲 Conectar WhatsApp (QR Code)'}
               </button>
             )}
             {whats.state !== 'open' && (
-              <div className="bg-gray-800/60 rounded-xl p-4 space-y-3">
-                <button onClick={() => setModoCodigo(!modoCodigo)} className="text-amber-500 hover:underline text-sm">
+              <div className="bg-[#eef0f4] rounded-xl p-4 space-y-3">
+                <button onClick={() => setModoCodigo(!modoCodigo)} className="text-[#1c52f8] hover:underline text-sm">
                   {modoCodigo ? '← Voltar para o QR Code' : '📞 Não consegue escanear? (iPhone) — Conectar com código'}
                 </button>
                 {modoCodigo && (
@@ -542,12 +544,12 @@ export default function PainelPage() {
                       onChange={e => setNumeroPareamento(e.target.value)}
                       placeholder="Número do WhatsApp com DDD (ex.: 11 99999-8888)"
                       inputMode="tel"
-                      className="w-full bg-gray-900 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full bg-white border border-[#e5e7eb] rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-[#1c52f8]"
                     />
                     <button
                       onClick={() => numeroPareamento.trim() && conectarWhats('conectar', numeroPareamento)}
                       disabled={gerandoQr || !numeroPareamento.trim()}
-                      className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 rounded-xl py-3 font-semibold"
+                      className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white disabled:opacity-50 rounded-xl py-3 font-semibold"
                     >
                       {gerandoQr ? 'Gerando código...' : '🔢 Gerar código de 8 dígitos'}
                     </button>
@@ -556,7 +558,7 @@ export default function PainelPage() {
               </div>
             )}
             <div className="border-t border-gray-800 pt-4 mt-2 space-y-3">
-              <div className="bg-green-900/20 border border-green-800/50 rounded-xl p-4 text-sm text-green-200 text-left">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800 text-left">
                 🔒 <b>{clientesTotal} cliente(s) protegido(s) no banco de dados.</b><br />
                 Perdeu o chip ou trocou de número? É só colocar o número novo — seus clientes,
                 agendamentos, histórico e relatórios continuam TODOS salvos. Nada é perdido.
@@ -564,7 +566,7 @@ export default function PainelPage() {
               <button
                 onClick={() => conectarWhats('novo-numero')}
                 disabled={gerandoQr}
-                className="w-full bg-amber-700 hover:bg-amber-600 disabled:opacity-50 rounded-xl py-3 font-semibold"
+                className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white disabled:opacity-50 rounded-xl py-3 font-semibold"
               >
                 📱 Mudei de número (colocar outro)
               </button>
