@@ -66,6 +66,18 @@ export async function desligarInstancia(instanceName: string) {
   return evo(`/instance/delete/${instanceName}`, { method: 'DELETE' })
 }
 
+// Lista TODAS as instâncias com o estado de conexão (open | connecting | close).
+export async function listarInstancias() {
+  const r = await evo('/instance/fetchInstances')
+  const lista = Array.isArray(r.data) ? r.data : []
+  return lista
+    .map((i: any) => ({
+      name: i?.name || i?.instanceName || i?.instance?.instanceName || '',
+      state: i?.connectionStatus || i?.state || i?.connectionState || i?.instance?.state || 'unknown',
+    }))
+    .filter((i: { name: string }) => i.name)
+}
+
 // Envia mensagem de texto pelo WhatsApp (instância central "BarberIA").
 export async function enviarTexto(instanceName: string, numero: string, texto: string) {
   return evo(`/message/sendText/${instanceName}`, {
