@@ -30,50 +30,56 @@ export async function GET(req: NextRequest) {
     return t ? `O WhatsApp da barbearia *${t.nome}* (${t.codigo})` : `A instância *${name}*`
   }
 
-  const quedas: string[] = []
+  // candidatos a remetente: instâncias "open" (central primeiro). Como o "open"
+  // do Evolution nem sempre consegue enviar (ex.: Connection Closed), tentamos
+  // uma a uma até alguma realmente entregar.
+  const remetentes = instancias
+    .filter(i => i.state === 'open')
+    .map(i => i.name)
+    .sort((a, b) => (a === 'BarberIA' ? -1 : b === 'BarberIA' ? 1 : 0))
+
+  async function enviarPorAlguma(texto: string): Promise<boolean> {
+    for (const r of remetentes) {
+      const res = await enviarTexto(r, DU, texto)
+      if (res.ok) return true
+    }
+    return false
+  }
+
+  const quedas: { name: string; friendly: string }[] = []
   const voltas: string[] = []
-  const upserts: any[] = []
+  const upsertsOpen: any[] = []
+  const agora = new Date().toISOString()
 
   for (const inst of instancias) {
     const prev = prevPorInst[inst.name]
     if (inst.state === 'close') {
       const novaQueda = !prev || prev.estado !== 'close' || !prev.avisado
-      if (novaQueda) {
-        quedas.push(amigavel(inst.name))
-        upserts.push({ instancia: inst.name, estado: 'close', avisado: true, atualizado_em: new Date().toISOString() })
-      }
+      if (novaQueda) quedas.push({ name: inst.name, friendly: amigavel(inst.name) })
     } else if (inst.state === 'open') {
       if (prev && prev.estado === 'close' && prev.avisado) voltas.push(amigavel(inst.name))
-      upserts.push({ instancia: inst.name, estado: 'open', avisado: false, atualizado_em: new Date().toISOString() })
+      upsertsOpen.push({ instancia: inst.name, estado: 'open', avisado: false, atualizado_em: agora })
     }
     // 'connecting'/'unknown' = transitório, não mexe
   }
 
-  // salva os estados novos
-  if (upserts.length > 0) {
-    await supabaseAdmin.from('alertas_conexao').upsert(upserts, { onConflict: 'instancia' })
+  let enviados = 0
+  const upsertsClose: any[] = []
+
+  for (const q of quedas) {
+    const msg = `⚠️ *ALERTA DE CONEXÃO*\n\n📵 ${q.friendly} *DESCONECTOU* do WhatsApp!\n\nReconecte o quanto antes para não parar o atendimento.`
+    const ok = await enviarPorAlguma(msg)
+    if (ok) enviados++
+    // só marca como "avisado" se conseguiu entregar; senão tenta de novo na próxima rodada
+    upsertsClose.push({ instancia: q.name, estado: 'close', avisado: ok, atualizado_em: agora })
+  }
+  for (const v of voltas) {
+    await enviarPorAlguma(`✅ *Conexão restabelecida*\n\n${v} voltou a conectar no WhatsApp. Tudo normalizado. 💈`)
   }
 
-  // envia os alertas por QUALQUER instância conectada (se o central caiu, usa outra)
-  let enviados = 0
-  if (quedas.length > 0 || voltas.length > 0) {
-    const conectadas = instancias.filter(i => i.state === 'open')
-    const remetente = conectadas.find(i => i.name === 'BarberIA')?.name || conectadas[0]?.name || null
-    if (remetente) {
-      for (const q of quedas) {
-        const msg = `⚠️ *ALERTA DE CONEXÃO*\n\n📵 ${q} *DESCONECTOU* do WhatsApp!\n\nReconecte o quanto antes para não parar o atendimento.`
-        const r = await enviarTexto(remetente, DU, msg)
-        if (r.ok) enviados++
-      }
-      for (const v of voltas) {
-        const msg = `✅ *Conexão restabelecida*\n\n${v} voltou a conectar no WhatsApp. Tudo normalizado. 💈`
-        const r = await enviarTexto(remetente, DU, msg)
-        if (r.ok) enviados++
-      }
-    } else {
-      // nenhuma instância conectada pra enviar o alerta
-      return NextResponse.json({ ok: true, aviso: 'TODAS as instâncias caídas — não há por onde alertar', quedas: quedas.length })
-    }
+  const todosUpserts = [...upsertsOpen, ...upsertsClose]
+  if (todosUpserts.length > 0) {
+    await supabaseAdmin.from('alertas_conexao').upsert(todosUpserts, { onConflict: 'instancia' })
   }
 
   return NextResponse.json({
@@ -82,6 +88,7 @@ export async function GET(req: NextRequest) {
     quedas: quedas.length,
     voltas: voltas.length,
     enviados,
+    remetentes_disponiveis: remetentes.length,
     estados: instancias.map(i => ({ nome: i.name, estado: i.state })),
   })
 }
