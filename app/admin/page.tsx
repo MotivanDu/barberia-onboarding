@@ -486,6 +486,16 @@ export default function AdminPage() {
                     <a href={`/painel/${b.codigo}`} className="text-[#1c52f8] hover:underline">
                       painel →
                     </a>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Excluir a barbearia "${b.nome_barbearia}" (${b.codigo})?\n\nIsso apaga TODOS os dados dela (clientes, agendamentos, serviços) e NÃO tem volta.`))
+                          acao({ acao: 'excluir-barbearia', codigo: b.codigo })
+                      }}
+                      className="text-red-600 hover:underline text-sm"
+                      title="Excluir barbearia"
+                    >
+                      🗑️ excluir
+                    </button>
                   </div>
                 </div>
               </div>

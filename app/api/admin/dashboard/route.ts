@@ -383,6 +383,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
+    if (body.acao === 'excluir-barbearia') {
+      const cod = String(body.codigo).toUpperCase()
+      const { data: tenant } = await supabaseAdmin.from('tenants').select('id, asaas_subscription_id').eq('codigo', cod).single()
+      if (!tenant) return NextResponse.json({ error: 'Barbearia não encontrada' }, { status: 404 })
+      if (tenant.asaas_subscription_id && asaasConfigurado()) {
+        await cancelarAssinatura(tenant.asaas_subscription_id).catch(() => {})
+      }
+      for (const tbl of ['agendamentos', 'mensagens', 'conversas_ia', 'horarios_funcionamento', 'servicos', 'clientes', 'barbeiros']) {
+        await supabaseAdmin.from(tbl).delete().eq('tenant_id', tenant.id)
+      }
+      const { error } = await supabaseAdmin.from('tenants').delete().eq('id', tenant.id)
+      if (error) throw error
+      return NextResponse.json({ ok: true })
+    }
+
     return NextResponse.json({ error: 'ação inválida' }, { status: 400 })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'erro inesperado'
