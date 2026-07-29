@@ -125,6 +125,7 @@ export default function AdminPage() {
   const [qr, setQr] = useState<string | null>(null)
   const [gerandoQr, setGerandoQr] = useState(false)
   const [centralState, setCentralState] = useState('')
+  const [centralEnvioOk, setCentralEnvioOk] = useState<boolean | null>(null)
   const [centralNumero, setCentralNumero] = useState<string | null>(null)
   const [barbeirosTotal, setBarbeirosTotal] = useState(0)
   const [pairingCentral, setPairingCentral] = useState<string | null>(null)
@@ -157,6 +158,7 @@ export default function AdminPage() {
       const dc = await rc.json()
       if (rc.ok) {
         setCentralState(dc.barberia_state)
+        setCentralEnvioOk(dc.barberia_envio_ok ?? null)
         setCentralNumero(dc.barberia_numero)
         setBarbeirosTotal(dc.barbeiros_total || 0)
       }
@@ -191,6 +193,7 @@ export default function AdminPage() {
     const dc = await rc.json()
     if (rc.ok) {
       setCentralState(dc.barberia_state)
+      setCentralEnvioOk(dc.barberia_envio_ok ?? null)
       setCentralNumero(dc.barberia_numero)
       setBarbeirosTotal(dc.barbeiros_total || 0)
     }
@@ -229,6 +232,7 @@ export default function AdminPage() {
         setPairingCentral(null)
         setModoCodigoCentral(false)
         setCentralState('open')
+        setCentralEnvioOk(dc.barberia_envio_ok ?? null)
         setCentralNumero(dc.barberia_numero)
         setBarbeirosTotal(dc.barbeiros_total || 0)
       }
@@ -559,10 +563,26 @@ export default function AdminPage() {
           <div className="bg-white border border-[#e5e7eb] rounded-2xl p-6 max-w-xl space-y-4">
             <p className="font-semibold">📱 Número central do BarberIA (canal do barbeiro)</p>
             <div className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-xl p-4 space-y-1 text-sm">
-              <p>Estado: {centralState === 'open' ? '🟢 conectado' : `🔴 ${centralState || '...'}`}</p>
+              <p>Estado: {
+                centralState !== 'open'
+                  ? `🔴 ${centralState || '...'}`
+                  : centralEnvioOk === false
+                    ? '🟠 conectado no painel, mas NÃO está enviando'
+                    : centralEnvioOk === true
+                      ? '🟢 conectado e enviando'
+                      : '🟢 conectado'
+              }</p>
               {centralNumero && <p className="text-[#5b6472]">Número atual: <span className="font-mono text-[#1c52f8]">{centralNumero}</span></p>}
               <p className="text-emerald-600">🔒 {barbeirosTotal} barbeiro(s) e todas as barbearias/clientes protegidos no banco de dados.</p>
             </div>
+
+            {centralState === 'open' && centralEnvioOk === false && (
+              <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-sm text-amber-900 space-y-2">
+                <p className="font-semibold">⚠️ O número aparece conectado, mas está sem enviar mensagens.</p>
+                <p>Isso quase sempre é o <b>chip instável ou derrubado</b> (usado no WhatsApp Web/outro aparelho ao mesmo tempo, sem sinal, ou banido). Coloque um <b>chip dedicado e estável</b> só para o BarberIA e gere um novo QR abaixo.</p>
+                <p>Se o QR não aparecer ou não resolver, a sessão travou no servidor: reinicie o app <b>Evolution</b> no Easypanel (Deploy → Restart) e gere o QR de novo.</p>
+              </div>
+            )}
 
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800">
               ✅ <b>Trocar o número NÃO apaga nada.</b> Os barbeiros são reconhecidos pelo telefone deles, não por este número. Você pode colocar um número novo (perdeu o chip, trocou de aparelho) que todos os barbeiros, barbearias e clientes continuam no mesmo banco de dados.

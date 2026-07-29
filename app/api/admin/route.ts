@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import QRCode from 'qrcode'
 import { supabaseAdmin } from '@/lib/supabase'
-import { obterQR, estadoInstancia, dadosInstancia, logoutInstancia, desligarInstancia, criarInstancia, configurarWebhook } from '@/lib/evolution'
+import { obterQR, estadoInstancia, dadosInstancia, logoutInstancia, desligarInstancia, criarInstancia, configurarWebhook, sondarEnvio } from '@/lib/evolution'
 
 import { usuarioAutorizado } from '@/lib/adminAuth'
 
@@ -28,8 +28,18 @@ export async function GET(req: NextRequest) {
   const jid = dados?.ownerJid || ''
   const numeroCentral = jid ? jid.replace('@s.whatsapp.net', '').replace(/\D/g, '') : null
 
+  const state = barberia?.data?.instance?.state || 'inexistente'
+  // 'open' do Evolution não garante que ENVIA. Confirmamos com uma sonda real:
+  // se o socket estiver morto (chip caiu), envio_ok = false mesmo com state 'open'.
+  let envioOk = false
+  if (state === 'open') {
+    const probe = await sondarEnvio(INSTANCIA_BARBERIA, numeroCentral || undefined)
+    envioOk = probe.vivo
+  }
+
   return NextResponse.json({
-    barberia_state: barberia?.data?.instance?.state || 'inexistente',
+    barberia_state: state,
+    barberia_envio_ok: envioOk,
     barberia_numero: numeroCentral,
     barbeiros_total: barbeirosCount.count || 0,
     tenants: tenants || [],

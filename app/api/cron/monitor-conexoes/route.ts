@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { listarInstancias, enviarTexto } from '@/lib/evolution'
+import { listarInstancias, enviarTexto, sondarEnvio } from '@/lib/evolution'
 import { enviarEmailAlerta } from '@/lib/email'
 
 // Número do Du que recebe os alertas de conexão
@@ -14,6 +14,21 @@ export async function GET(req: NextRequest) {
 
   const instancias = await listarInstancias()
   if (instancias.length === 0) return NextResponse.json({ ok: true, aviso: 'sem instâncias', alertas: 0 })
+
+  // ESTADO REAL: o 'open' do Evolution não garante que ENVIA (chip caído aparece
+  // 'open' mas dá "Connection Closed" no envio). Sondamos cada 'open' e, se não
+  // estiver realmente viva, tratamos como CAIU — assim o vigia pega o zumbi.
+  const estadoReal: Record<string, string> = {}
+  await Promise.all(
+    instancias.map(async i => {
+      if (i.state === 'open') {
+        const probe = await sondarEnvio(i.name)
+        estadoReal[i.name] = probe.vivo ? 'open' : 'close'
+      } else {
+        estadoReal[i.name] = i.state
+      }
+    })
+  )
 
   // estado anterior (pra avisar só quando cai/volta, sem spam)
   const { data: anteriores } = await supabaseAdmin.from('alertas_conexao').select('*')
@@ -35,7 +50,7 @@ export async function GET(req: NextRequest) {
   // do Evolution nem sempre consegue enviar (ex.: Connection Closed), tentamos
   // uma a uma até alguma realmente entregar.
   const remetentes = instancias
-    .filter(i => i.state === 'open')
+    .filter(i => estadoReal[i.name] === 'open')
     .map(i => i.name)
     .sort((a, b) => (a === 'BarberIA' ? -1 : b === 'BarberIA' ? 1 : 0))
 
@@ -54,10 +69,11 @@ export async function GET(req: NextRequest) {
 
   for (const inst of instancias) {
     const prev = prevPorInst[inst.name]
-    if (inst.state === 'close') {
+    const st = estadoReal[inst.name]
+    if (st === 'close') {
       const novaQueda = !prev || prev.estado !== 'close' || !prev.avisado
       if (novaQueda) quedas.push({ name: inst.name, friendly: amigavel(inst.name) })
-    } else if (inst.state === 'open') {
+    } else if (st === 'open') {
       if (prev && prev.estado === 'close' && prev.avisado) voltas.push(amigavel(inst.name))
       upsertsOpen.push({ instancia: inst.name, estado: 'open', avisado: false, atualizado_em: agora })
     }
@@ -96,6 +112,6 @@ export async function GET(req: NextRequest) {
     enviados,
     emails,
     remetentes_disponiveis: remetentes.length,
-    estados: instancias.map(i => ({ nome: i.name, estado: i.state })),
+    estados: instancias.map(i => ({ nome: i.name, estado: i.state, envia: estadoReal[i.name] === 'open' })),
   })
 }

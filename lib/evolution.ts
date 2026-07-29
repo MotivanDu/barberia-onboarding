@@ -92,6 +92,21 @@ export async function enviarTexto(instanceName: string, numero: string, texto: s
   })
 }
 
+// Sonda de VIDA REAL do envio: o /chat/fetchProfile exige o socket do WhatsApp
+// realmente vivo. Numa instância "open" zumbi (aparece conectada mas não envia —
+// ex.: chip derrubado) isto retorna 500 "Connection Closed". NÃO envia mensagem
+// nenhuma (sem spam), então serve de checagem de saúde honesta.
+export async function sondarEnvio(instanceName: string, numeroProbe?: string) {
+  const num = (numeroProbe || '5519992252913').replace(/\D/g, '')
+  const r = await evo(`/chat/fetchProfile/${instanceName}`, {
+    method: 'POST',
+    body: JSON.stringify({ number: num }),
+  })
+  const txt = JSON.stringify(r.data ?? '')
+  const conexaoMorta = /connection closed/i.test(txt)
+  return { vivo: r.ok && !conexaoMorta, status: r.status }
+}
+
 export async function dadosInstancia(instanceName: string) {
   const r = await evo(`/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`)
   const lista = Array.isArray(r.data) ? r.data : []
