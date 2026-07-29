@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import QRCode from 'qrcode'
 import { supabaseAdmin } from '@/lib/supabase'
-import { obterQR, estadoInstancia, dadosInstancia, logoutInstancia } from '@/lib/evolution'
+import { obterQR, estadoInstancia, dadosInstancia, logoutInstancia, desligarInstancia, criarInstancia, configurarWebhook } from '@/lib/evolution'
 
 import { usuarioAutorizado } from '@/lib/adminAuth'
 
@@ -56,35 +56,51 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Se travou em 'open' (aparece conectado mas está quebrado), deslogar primeiro
-    // libera um QR/código novo. Não apaga a instância (mantém nome e vínculos).
-    if (body.forcar) {
-      await logoutInstancia(INSTANCIA_BARBERIA)
-      await new Promise(r => setTimeout(r, 2500))
+    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+    const extrair = async (r: any): Promise<{ qr: string | null; pairing: string | null }> => {
+      const pairing = r?.data?.pairingCode || null
+      let qr: string | null = null
+      if (!numeroLimpo) {
+        const base64 = r?.data?.base64 || r?.data?.qrcode?.base64 || null
+        if (base64) qr = base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`
+        else {
+          const code = r?.data?.code || r?.data?.qrcode?.code || null
+          if (code) qr = await QRCode.toDataURL(code, { width: 320, margin: 2 })
+        }
+      }
+      return { qr, pairing }
     }
 
+    // 1) desloga a sessão atual — destrava a instância presa em 'open' (que aparece
+    //    conectada mas está morta) e libera um QR/código novo. NÃO apaga a instância.
+    await logoutInstancia(INSTANCIA_BARBERIA).catch(() => {})
+    await sleep(2000)
     let conectar = await obterQR(INSTANCIA_BARBERIA, numeroLimpo)
-    let pairing: string | null = conectar?.data?.pairingCode || null
-    let qr: string | null = null
-    if (!numeroLimpo) {
-      const base64 = conectar?.data?.base64 || conectar?.data?.qrcode?.base64 || null
-      if (base64) qr = base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`
-      else {
-        const code = conectar?.data?.code || conectar?.data?.qrcode?.code || null
-        if (code) qr = await QRCode.toDataURL(code, { width: 320, margin: 2 })
-      }
+    let { qr, pairing } = await extrair(conectar)
+
+    // 2) se ainda não veio QR/código, recria a instância do ZERO (mesmo nome →
+    //    barbeiros, vínculos e workflows continuam intactos) e reconfigura o webhook.
+    if (!qr && !pairing) {
+      await desligarInstancia(INSTANCIA_BARBERIA).catch(() => {})
+      await sleep(1500)
+      await criarInstancia(INSTANCIA_BARBERIA).catch(() => {})
+      await configurarWebhook(INSTANCIA_BARBERIA).catch(() => {})
+      await sleep(2500)
+      conectar = await obterQR(INSTANCIA_BARBERIA, numeroLimpo)
+      ;({ qr, pairing } = await extrair(conectar))
     }
-    // pairing pode demorar 1-2s em socket recém-aberto: uma retentativa
+
+    // 3) o código de pareamento pode demorar 1-2s num socket recém-aberto: uma retentativa
     if (numeroLimpo && !pairing) {
-      await new Promise(r => setTimeout(r, 2500))
+      await sleep(2500)
       conectar = await obterQR(INSTANCIA_BARBERIA, numeroLimpo)
       pairing = conectar?.data?.pairingCode || null
     }
 
     const estado = await estadoInstancia(INSTANCIA_BARBERIA)
     const state = estado?.data?.instance?.state || 'close'
-    if (!qr && !pairing && state !== 'open') {
-      return NextResponse.json({ error: 'Não foi possível gerar a conexão. Tente novamente.', state }, { status: 502 })
+    if (!qr && !pairing) {
+      return NextResponse.json({ error: 'Não foi possível gerar a conexão agora. Aguarde uns segundos e tente de novo.', state }, { status: 502 })
     }
     return NextResponse.json({ qr, pairing, state })
   }

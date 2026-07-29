@@ -7,6 +7,7 @@ import {
   obterQR,
   estadoInstancia,
   desligarInstancia,
+  logoutInstancia,
   dadosInstancia,
 } from '@/lib/evolution'
 
@@ -118,10 +119,27 @@ export async function POST(req: NextRequest) {
     if (hash) patch.evolution_apikey = hash
     await supabaseAdmin.from('tenants').update(patch).eq('id', tenant.id)
 
+    // Destrava a sessão: instância presa em 'open' morto (aparece conectada mas não
+    // envia) não gera QR — deslogar libera um QR/código novo. NÃO apaga a instância.
+    await logoutInstancia(instancia).catch(() => {})
+    await new Promise(r => setTimeout(r, 1500))
+
     // Conexão: QR (padrão) e/ou pairing code de 8 dígitos (fallback iPhone) — via /connect
     let conectar = await obterQR(instancia, numeroLimpo)
     let qr = numeroLimpo ? null : await extrairQrDataUrl(conectar)
     let pairing: string | null = conectar?.data?.pairingCode || null
+
+    // se não veio nada, recria a instância do zero (mesmo nome → dados intactos no Supabase)
+    if (!qr && !pairing) {
+      await desligarInstancia(instancia).catch(() => {})
+      await new Promise(r => setTimeout(r, 1500))
+      await criarInstancia(instancia).catch(() => {})
+      await configurarWebhook(instancia).catch(() => {})
+      await new Promise(r => setTimeout(r, 2500))
+      conectar = await obterQR(instancia, numeroLimpo)
+      qr = numeroLimpo ? null : await extrairQrDataUrl(conectar)
+      pairing = conectar?.data?.pairingCode || null
+    }
 
     // pairing pode demorar 1-2s a mais em socket novo: uma retentativa
     if (numeroLimpo && !pairing) {
@@ -133,15 +151,15 @@ export async function POST(req: NextRequest) {
     const estado = await estadoInstancia(instancia)
     const state = estado?.data?.instance?.state || 'close'
 
-    if (numeroLimpo && !pairing && state !== 'open') {
+    if (numeroLimpo && !pairing) {
       return NextResponse.json(
         { error: 'Não foi possível gerar o código. Confira o número (com DDD) e tente novamente.', state },
         { status: 502 }
       )
     }
-    if (!qr && !pairing && state !== 'open') {
+    if (!qr && !pairing) {
       return NextResponse.json(
-        { error: 'Não foi possível gerar o QR Code. Tente novamente.', state },
+        { error: 'Não foi possível gerar o QR Code. Aguarde uns segundos e tente de novo.', state },
         { status: 502 }
       )
     }
