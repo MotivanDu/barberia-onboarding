@@ -196,14 +196,14 @@ export default function AdminPage() {
     }
   }
 
-  const gerarQrCentral = async (numero?: string) => {
+  const gerarQrCentral = async (numero?: string, forcar?: boolean) => {
     setGerandoQr(true)
     setQr(null)
     setPairingCentral(null)
     const r = await fetch('/api/admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-senha': senhaRef.current },
-      body: JSON.stringify({ acao: 'qr-barberia', numero }),
+      body: JSON.stringify({ acao: 'qr-barberia', numero, forcar }),
     })
     const d = await r.json()
     setGerandoQr(false)
@@ -594,6 +594,16 @@ export default function AdminPage() {
                 className="bg-[#1c52f8] hover:bg-[#1746d8] text-white disabled:opacity-50 rounded-xl px-4 py-3 font-medium w-full"
               >
                 {gerandoQr ? 'Gerando...' : qr ? '🔄 Gerar novo QR Code' : '📲 Colocar / trocar número (QR Code)'}
+              </button>
+            )}
+
+            {!modoCodigoCentral && (
+              <button
+                onClick={() => gerarQrCentral(undefined, true)}
+                disabled={gerandoQr}
+                className="text-[#5b6472] hover:text-[#16181d] text-sm underline w-full text-center disabled:opacity-50"
+              >
+                Não apareceu o QR? 🔄 Forçar novo QR (destrava a conexão)
               </button>
             )}
 

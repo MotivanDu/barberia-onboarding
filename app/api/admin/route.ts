@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import QRCode from 'qrcode'
 import { supabaseAdmin } from '@/lib/supabase'
-import { obterQR, estadoInstancia, dadosInstancia } from '@/lib/evolution'
+import { obterQR, estadoInstancia, dadosInstancia, logoutInstancia } from '@/lib/evolution'
 
 import { usuarioAutorizado } from '@/lib/adminAuth'
 
@@ -54,6 +54,13 @@ export async function POST(req: NextRequest) {
       if (numeroLimpo.length < 12 || numeroLimpo.length > 13) {
         return NextResponse.json({ error: 'Número inválido. Use DDD + número.' }, { status: 400 })
       }
+    }
+
+    // Se travou em 'open' (aparece conectado mas está quebrado), deslogar primeiro
+    // libera um QR/código novo. Não apaga a instância (mantém nome e vínculos).
+    if (body.forcar) {
+      await logoutInstancia(INSTANCIA_BARBERIA)
+      await new Promise(r => setTimeout(r, 2500))
     }
 
     let conectar = await obterQR(INSTANCIA_BARBERIA, numeroLimpo)

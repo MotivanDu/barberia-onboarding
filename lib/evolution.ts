@@ -66,6 +66,12 @@ export async function desligarInstancia(instanceName: string) {
   return evo(`/instance/delete/${instanceName}`, { method: 'DELETE' })
 }
 
+// Só desloga o WhatsApp (encerra a sessão) SEM apagar a instância — usado para
+// destravar uma instância presa em 'open' e conseguir gerar um QR novo.
+export async function logoutInstancia(instanceName: string) {
+  return evo(`/instance/logout/${instanceName}`, { method: 'DELETE' })
+}
+
 // Lista TODAS as instâncias com o estado de conexão (open | connecting | close).
 export async function listarInstancias() {
   const r = await evo('/instance/fetchInstances')
