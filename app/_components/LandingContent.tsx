@@ -291,9 +291,19 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
       {/* PREÇOS */}
       <section id="precos" className="border-y" style={{ background: 'var(--soft)', borderColor: 'var(--border)' }}>
         <div className="max-w-5xl mx-auto px-4 py-16">
-          <h2 className="text-3xl font-bold text-center">Um preço só. A barbearia inteira.</h2>
-          <p className="text-center mt-2" style={{ color: 'var(--muted)' }}>
-            Todos os recursos incluídos, sem cobrar &quot;por profissional&quot;. Cancele quando quiser no mensal.
+          <h2 className="text-3xl font-bold text-center">Um valor. Tudo incluído.</h2>
+          <p className="text-center mt-3 max-w-2xl mx-auto" style={{ color: 'var(--muted)' }}>
+            Todos os recursos do BarberIA por um preço fixo — sem taxas escondidas, sem surpresa no fim do mês.
+          </p>
+          <p className="text-center mt-5 text-xl font-bold">
+            Você só corta. O BarberIA traz o cliente.
+          </p>
+          <p className="text-center mt-1 max-w-2xl mx-auto" style={{ color: 'var(--muted)' }}>
+            Agenda cheia, clientes voltando sozinhos e atendimento no WhatsApp trabalhando por você.
+          </p>
+          <p className="text-center mt-4" style={{ color: 'var(--muted)' }}>
+            Cancele quando quiser no mensal. No plano anual, ganhe{' '}
+            <strong style={{ color: AZUL }}>R$ 200 de desconto</strong>.
           </p>
 
           <div className="grid md:grid-cols-2 gap-5 mt-10 items-start">
