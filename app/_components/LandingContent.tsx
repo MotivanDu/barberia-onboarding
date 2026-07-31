@@ -337,24 +337,53 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
             </div>
           </div>
 
-          <div className="rounded-2xl p-6 mt-6 border" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-            <p className="font-semibold text-center mb-4">✅ Incluído nos dois planos</p>
-            <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm max-w-2xl mx-auto" style={{ color: 'var(--muted)' }}>
+          <div className="rounded-2xl p-6 md:p-8 mt-6 border" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+            <p className="text-center text-xl font-bold">Tudo isto por menos de R$ 3,33 por dia</p>
+            <p className="text-center text-sm mt-1 mb-7" style={{ color: 'var(--muted)' }}>
+              Incluído nos dois planos — sem cobrar a mais por nada.
+            </p>
+            <div className="grid md:grid-cols-3 gap-6 md:gap-8">
               {[
-                'Atendimento por IA 24/7 no WhatsApp',
-                'Agendamento automático sem choque de horário',
-                'Lembretes de véspera e 2h antes + confirmação',
-                'Aviso pra você a cada agendamento',
-                'Resgate automático de clientes sumidos',
-                'Painel com receita e resultados da IA',
-                'Cadastro livre de serviços e preços',
-                'Importação e reativação da sua base',
-                'Seu próprio número (QR ou código)',
-                'Troca de número sem perder nada',
-              ].map(x => (
-                <div key={x} className="flex items-start gap-2">
-                  <span className="mt-0.5" style={{ color: '#1f7a52' }}>✓</span>
-                  <span>{x}</span>
+                {
+                  titulo: '🤖 Atende e vende sozinho',
+                  itens: [
+                    'IA responde na hora, 24h, no seu número',
+                    'Fecha o agendamento sem você tocar no celular',
+                    'Nunca marca dois clientes no mesmo horário',
+                    'Sabe seus serviços, preços e promoções',
+                  ],
+                },
+                {
+                  titulo: '📈 Enche a agenda e traz de volta',
+                  itens: [
+                    'Resgata sozinho quem sumiu (barba 15d, corte 30d)',
+                    'Lembra o cliente na véspera e 2h antes',
+                    'Pede confirmação e avisa se cancelar',
+                    'Parabeniza aniversariantes no automático',
+                    'Importa e reativa toda a sua base de contatos',
+                  ],
+                },
+                {
+                  titulo: '💈 Você no controle',
+                  itens: [
+                    'Sua agenda do dia às 8h, com os nomes',
+                    'Aviso a cada agendamento e quando confirmam',
+                    'Painel com faturamento e quanto a IA rendeu',
+                    'Assume a conversa quando quiser — a IA recua',
+                    'Seu próprio número, e troca sem perder nada',
+                  ],
+                },
+              ].map(g => (
+                <div key={g.titulo}>
+                  <p className="font-semibold mb-3">{g.titulo}</p>
+                  <div className="space-y-2 text-sm" style={{ color: 'var(--muted)' }}>
+                    {g.itens.map(x => (
+                      <div key={x} className="flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0" style={{ color: '#1f7a52' }}>✓</span>
+                        <span>{x}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
