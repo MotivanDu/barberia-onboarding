@@ -35,10 +35,16 @@ export async function GET(req: NextRequest) {
   const prevPorInst: Record<string, { estado: string; avisado: boolean }> = {}
   for (const a of anteriores || []) prevPorInst[a.instancia] = { estado: a.estado, avisado: a.avisado }
 
-  // nomes amigáveis das barbearias
-  const { data: tenants } = await supabaseAdmin.from('tenants').select('evolution_instance, nome_barbearia, codigo')
-  const tenantPorInst: Record<string, { nome: string; codigo: string }> = {}
-  for (const t of tenants || []) if (t.evolution_instance) tenantPorInst[t.evolution_instance] = { nome: t.nome_barbearia, codigo: t.codigo }
+  // nomes amigáveis + telefone do barbeiro (pra ele reconectar sozinho)
+  const BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://barberia-onboarding.vercel.app'
+  const [{ data: tenants }, { data: barbeiros }] = await Promise.all([
+    supabaseAdmin.from('tenants').select('id, evolution_instance, nome_barbearia, codigo'),
+    supabaseAdmin.from('barbeiros').select('tenant_id, telefone').eq('ativo', true),
+  ])
+  const tenantPorInst: Record<string, { id: string; nome: string; codigo: string }> = {}
+  for (const t of tenants || []) if (t.evolution_instance) tenantPorInst[t.evolution_instance] = { id: t.id, nome: t.nome_barbearia, codigo: t.codigo }
+  const telefonePorTenant: Record<string, string> = {}
+  for (const b of barbeiros || []) if (b.tenant_id && b.telefone && !telefonePorTenant[b.tenant_id]) telefonePorTenant[b.tenant_id] = String(b.telefone).replace(/\D/g, '')
 
   function amigavel(name: string) {
     if (name === 'BarberIA') return 'O número CENTRAL do BarberIA (canal dos barbeiros)'
@@ -54,16 +60,17 @@ export async function GET(req: NextRequest) {
     .map(i => i.name)
     .sort((a, b) => (a === 'BarberIA' ? -1 : b === 'BarberIA' ? 1 : 0))
 
-  async function enviarPorAlguma(texto: string): Promise<boolean> {
+  async function enviarPara(destino: string, texto: string): Promise<boolean> {
     for (const r of remetentes) {
-      const res = await enviarTexto(r, DU, texto)
+      const res = await enviarTexto(r, destino, texto)
       if (res.ok) return true
     }
     return false
   }
+  const enviarPorAlguma = (texto: string) => enviarPara(DU, texto)
 
   const quedas: { name: string; friendly: string }[] = []
-  const voltas: string[] = []
+  const voltas: { name: string; friendly: string }[] = []
   const upsertsOpen: any[] = []
   const agora = new Date().toISOString()
 
@@ -74,7 +81,7 @@ export async function GET(req: NextRequest) {
       const novaQueda = !prev || prev.estado !== 'close' || !prev.avisado
       if (novaQueda) quedas.push({ name: inst.name, friendly: amigavel(inst.name) })
     } else if (st === 'open') {
-      if (prev && prev.estado === 'close' && prev.avisado) voltas.push(amigavel(inst.name))
+      if (prev && prev.estado === 'close' && prev.avisado) voltas.push({ name: inst.name, friendly: amigavel(inst.name) })
       upsertsOpen.push({ instancia: inst.name, estado: 'open', avisado: false, atualizado_em: agora })
     }
     // 'connecting'/'unknown' = transitório, não mexe
@@ -84,19 +91,41 @@ export async function GET(req: NextRequest) {
   const upsertsClose: any[] = []
 
   let emails = 0
+  let barbeirosAvisados = 0
   for (const q of quedas) {
     const texto = q.friendly.replace(/\*/g, '')
     const wa = await enviarPorAlguma(`⚠️ *ALERTA DE CONEXÃO*\n\n📵 ${q.friendly} *DESCONECTOU* do WhatsApp!\n\nReconecte o quanto antes para não parar o atendimento.`)
     const em = await enviarEmailAlerta('⚠️ BarberIA: conexão desconectou', `${texto} DESCONECTOU do WhatsApp. Reconecte o quanto antes para não parar o atendimento.`)
     if (wa) enviados++
     if (em.ok) emails++
+
+    // AUTO-RECONNECT SELF-SERVICE: se for uma barbearia, avisa o PRÓPRIO barbeiro
+    // com o link de reconexão pra ele reescanear sozinho (sem depender do Du).
+    // Sai por OUTRA instância que esteja enviando — a dele está caída.
+    const t = tenantPorInst[q.name]
+    const tel = t ? telefonePorTenant[t.id] : null
+    if (t && tel) {
+      const link = `${BASE}/qrcode/${t.codigo}`
+      const okBarbeiro = await enviarPara(
+        tel,
+        `⚠️ Ops! O WhatsApp da sua barbearia *${t.nome}* caiu e parou de atender seus clientes. 📵\n\nReconecte agora — leva 30 segundos:\n${link}\n\nAbra o link, escaneie o QR com *este* WhatsApp e pronto. 💈`
+      )
+      if (okBarbeiro) barbeirosAvisados++
+    }
+
     // marca como "avisado" se ENTREGOU por qualquer canal; senão tenta de novo na próxima rodada
     upsertsClose.push({ instancia: q.name, estado: 'close', avisado: wa || em.ok, atualizado_em: agora })
   }
   for (const v of voltas) {
-    const texto = v.replace(/\*/g, '')
-    await enviarPorAlguma(`✅ *Conexão restabelecida*\n\n${v} voltou a conectar no WhatsApp. Tudo normalizado. 💈`)
+    const texto = v.friendly.replace(/\*/g, '')
+    await enviarPorAlguma(`✅ *Conexão restabelecida*\n\n${v.friendly} voltou a conectar no WhatsApp. Tudo normalizado. 💈`)
     await enviarEmailAlerta('✅ BarberIA: conexão restabelecida', `${texto} voltou a conectar no WhatsApp. Tudo normalizado.`)
+    // confirma pro barbeiro (agora pela instância dele, que voltou)
+    const t = tenantPorInst[v.name]
+    const tel = t ? telefonePorTenant[t.id] : null
+    if (t && tel) {
+      await enviarPara(tel, `✅ Prontinho! O WhatsApp da sua barbearia *${t.nome}* voltou a atender seus clientes normalmente. 💈`)
+    }
   }
 
   const todosUpserts = [...upsertsOpen, ...upsertsClose]
@@ -111,6 +140,7 @@ export async function GET(req: NextRequest) {
     voltas: voltas.length,
     enviados,
     emails,
+    barbeiros_avisados: barbeirosAvisados,
     remetentes_disponiveis: remetentes.length,
     estados: instancias.map(i => ({ nome: i.name, estado: i.state, envia: estadoReal[i.name] === 'open' })),
   })
