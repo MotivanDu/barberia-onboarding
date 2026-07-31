@@ -370,7 +370,7 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
                     'Aviso a cada agendamento e quando confirmam',
                     'Painel com faturamento e quanto a IA rendeu',
                     'Assume a conversa quando quiser — a IA recua',
-                    'Seu próprio número, e troca sem perder nada',
+                    'Seu próprio número, e caso troque de número mantém toda a sua base de clientes sem perder nada',
                   ],
                 },
               ].map(g => (
