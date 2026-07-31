@@ -292,11 +292,8 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
       <section id="precos" className="border-y" style={{ background: 'var(--soft)', borderColor: 'var(--border)' }}>
         <div className="max-w-5xl mx-auto px-4 py-16">
           <h2 className="text-3xl font-bold text-center">Um valor. Tudo incluído.</h2>
-          <p className="text-center text-sm mt-3 max-w-xl mx-auto" style={{ color: 'var(--muted)' }}>
-            Todos os recursos do BarberIA por um preço fixo — sem taxas escondidas, sem surpresa no fim do mês.
-          </p>
-          <p className="text-center text-sm mt-2 max-w-xl mx-auto" style={{ color: 'var(--muted)' }}>
-            Agenda cheia, clientes voltando sozinhos e atendimento no WhatsApp trabalhando por você.
+          <p className="text-center text-sm mt-3 max-w-2xl mx-auto leading-relaxed" style={{ color: 'var(--muted)' }}>
+            Todos os recursos do BarberIA por um preço fixo — sem taxas escondidas, sem surpresa no fim do mês, agenda cheia, clientes voltando sozinhos e atendimento no WhatsApp 24h trabalhando por você.
           </p>
 
           <div className="grid md:grid-cols-2 gap-5 mt-10 items-start">
