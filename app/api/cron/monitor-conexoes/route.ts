@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { listarInstancias, enviarTexto, sondarEnvio } from '@/lib/evolution'
+import { reiniciarEvolution, easypanelConfigurado } from '@/lib/easypanel'
 import { enviarEmailAlerta } from '@/lib/email'
 
 // Número do Du que recebe os alertas de conexão
@@ -87,6 +88,20 @@ export async function GET(req: NextRequest) {
     // 'connecting'/'unknown' = transitório, não mexe
   }
 
+  // AUTO-CURA: central virou zumbi (nova queda) e sem restart nos últimos 30 min
+  // → reinicia o serviço Evolution no Easypanel (destrava a instância presa que
+  // logout/delete não limpam). Um restart cura todas as instâncias de uma vez.
+  let autoRestart = false
+  if (quedas.some(q => q.name === 'BarberIA') && easypanelConfigurado()) {
+    const lastRst = (anteriores || []).find((a: any) => a.instancia === '__last_restart__')
+    const lastMs = lastRst?.atualizado_em ? new Date(lastRst.atualizado_em).getTime() : 0
+    if (Date.now() - lastMs > 30 * 60 * 1000) {
+      const rst = await reiniciarEvolution()
+      autoRestart = rst.ok
+      if (rst.ok) upsertsOpen.push({ instancia: '__last_restart__', estado: 'restart', avisado: true, atualizado_em: agora })
+    }
+  }
+
   let enviados = 0
   const upsertsClose: any[] = []
 
@@ -141,6 +156,7 @@ export async function GET(req: NextRequest) {
     enviados,
     emails,
     barbeiros_avisados: barbeirosAvisados,
+    auto_restart: autoRestart,
     remetentes_disponiveis: remetentes.length,
     estados: instancias.map(i => ({ nome: i.name, estado: i.state, envia: estadoReal[i.name] === 'open' })),
   })

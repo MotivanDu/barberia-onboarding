@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import QRCode from 'qrcode'
 import { supabaseAdmin } from '@/lib/supabase'
 import { obterQR, estadoInstancia, dadosInstancia, logoutInstancia, desligarInstancia, criarInstancia, configurarWebhook, sondarEnvio } from '@/lib/evolution'
+import { reiniciarEvolution, easypanelConfigurado } from '@/lib/easypanel'
 
 import { usuarioAutorizado } from '@/lib/adminAuth'
 
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
   // a MESMA instância "BarberIA" → todos os barbeiros, vínculos e workflows continuam intactos.
   // Aceita número (opcional) para gerar código de pareamento de 8 dígitos (mais fácil que QR).
   if (acao === 'qr-barberia') {
+    const semRestart = !!body.semRestart
     let numeroLimpo: string | undefined
     if (body.numero) {
       numeroLimpo = String(body.numero).replace(/\D/g, '')
@@ -110,6 +112,24 @@ export async function POST(req: NextRequest) {
     const estado = await estadoInstancia(INSTANCIA_BARBERIA)
     const state = estado?.data?.instance?.state || 'close'
     if (!qr && !pairing) {
+      // Instância travada (zumbi): logout/delete/connect não geram QR porque a
+      // sessão está presa no processo do Evolution. Reinicia o serviço Evolution
+      // no Easypanel (destrava; recarrega instâncias limpas do banco) e pede pra
+      // tentar de novo em ~45s — o retry (semRestart=true) não reinicia de novo.
+      if (easypanelConfigurado() && !semRestart) {
+        const rst = await reiniciarEvolution()
+        if (rst.ok) {
+          return NextResponse.json({
+            reiniciando: true,
+            state,
+            aviso: 'A conexão estava travada. Reiniciei o servidor do WhatsApp — aguarde ~45 segundos que eu gero o QR automaticamente.',
+          })
+        }
+        return NextResponse.json(
+          { error: `Não consegui reiniciar o servidor automaticamente (status ${rst.status}). ${rst.body}`, state },
+          { status: 502 }
+        )
+      }
       return NextResponse.json({ error: 'Não foi possível gerar a conexão agora. Aguarde uns segundos e tente de novo.', state }, { status: 502 })
     }
     return NextResponse.json({ qr, pairing, state })

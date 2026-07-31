@@ -199,22 +199,30 @@ export default function AdminPage() {
     }
   }
 
-  const gerarQrCentral = async (numero?: string, forcar?: boolean) => {
+  const gerarQrCentral = async (numero?: string, forcar?: boolean, semRestart?: boolean) => {
     setGerandoQr(true)
     setQr(null)
     setPairingCentral(null)
     const r = await fetch('/api/admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-senha': senhaRef.current },
-      body: JSON.stringify({ acao: 'qr-barberia', numero, forcar }),
+      body: JSON.stringify({ acao: 'qr-barberia', numero, forcar, semRestart }),
     })
     const d = await r.json()
-    setGerandoQr(false)
     if (!r.ok) {
+      setGerandoQr(false)
       setErro(d.error || 'Erro ao gerar conexão')
       return
     }
     setErro('')
+    // instância travada → o servidor Evolution foi reiniciado; espera ~45s e tenta
+    // de novo automaticamente (semRestart=true não reinicia de novo). Segue "Gerando...".
+    if (d.reiniciando) {
+      setErro('⏳ ' + (d.aviso || 'Reiniciei o servidor do WhatsApp. Aguarde ~45 segundos...'))
+      setTimeout(() => gerarQrCentral(numero, forcar, true), 45000)
+      return
+    }
+    setGerandoQr(false)
     if (d.state === 'open' && !d.qr && !d.pairing) {
       setCentralState('open')
       recarregarCentral()
