@@ -119,7 +119,7 @@ export default function AdminPage() {
   const [logado, setLogado] = useState(false)
   const [erro, setErro] = useState('')
   const [dash, setDash] = useState<Dash | null>(null)
-  const [aba, setAba] = useState<'visao' | 'barbearias' | 'clientes' | 'planos' | 'central'>('visao')
+  const [aba, setAba] = useState<'visao' | 'barbearias' | 'clientes' | 'planos' | 'central' | 'alertas'>('visao')
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'ativo' | 'cancelado'>('todos')
   const [qr, setQr] = useState<string | null>(null)
@@ -127,6 +127,10 @@ export default function AdminPage() {
   const [centralState, setCentralState] = useState('')
   const [centralEnvioOk, setCentralEnvioOk] = useState<boolean | null>(null)
   const [centralNumero, setCentralNumero] = useState<string | null>(null)
+  const [numeroAlerta, setNumeroAlerta] = useState('')
+  const [novoAlerta, setNovoAlerta] = useState('')
+  const [salvandoAlerta, setSalvandoAlerta] = useState(false)
+  const [alertaMsg, setAlertaMsg] = useState('')
   const [barbeirosTotal, setBarbeirosTotal] = useState(0)
   const [pairingCentral, setPairingCentral] = useState<string | null>(null)
   const [modoCodigoCentral, setModoCodigoCentral] = useState(false)
@@ -161,6 +165,7 @@ export default function AdminPage() {
         setCentralEnvioOk(dc.barberia_envio_ok ?? null)
         setCentralNumero(dc.barberia_numero)
         setBarbeirosTotal(dc.barbeiros_total || 0)
+        setNumeroAlerta(dc.numero_alerta || '')
       }
     }
   }
@@ -196,7 +201,27 @@ export default function AdminPage() {
       setCentralEnvioOk(dc.barberia_envio_ok ?? null)
       setCentralNumero(dc.barberia_numero)
       setBarbeirosTotal(dc.barbeiros_total || 0)
+      setNumeroAlerta(dc.numero_alerta || '')
     }
+  }
+
+  const salvarNumeroAlerta = async () => {
+    setSalvandoAlerta(true)
+    setAlertaMsg('')
+    const r = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-senha': senhaRef.current },
+      body: JSON.stringify({ acao: 'salvar-numero-alerta', numero: novoAlerta }),
+    })
+    const d = await r.json()
+    setSalvandoAlerta(false)
+    if (!r.ok) {
+      setAlertaMsg('❌ ' + (d.error || 'Erro ao salvar'))
+      return
+    }
+    setNumeroAlerta(d.numero_alerta)
+    setNovoAlerta('')
+    setAlertaMsg('✅ Número de alerta atualizado! Vale para queda de conexão e erro no fluxo.')
   }
 
   const gerarQrCentral = async (numero?: string, forcar?: boolean, semRestart?: boolean) => {
@@ -327,6 +352,7 @@ export default function AdminPage() {
               ['clientes', '👥 Clientes'],
               ['planos', '💳 Planos'],
               ['central', '📱 Nº Central'],
+              ['alertas', '🔔 Alertas'],
             ] as const
           ).map(([kk, label]) => (
             <button
@@ -657,6 +683,39 @@ export default function AdminPage() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {aba === 'alertas' && (
+          <div className="bg-white border border-[#e5e7eb] rounded-2xl p-6 max-w-xl space-y-4">
+            <p className="font-semibold">🔔 Número que recebe os alertas de gerência</p>
+            <div className="bg-[#f6f6f4] border border-[#e5e7eb] rounded-xl p-4 space-y-1 text-sm">
+              <p>Número atual: <span className="font-mono text-[#1c52f8]">{numeroAlerta || '—'}</span></p>
+              <p className="text-[#5b6472]">Recebe: <b>queda de WhatsApp</b> de qualquer barbeiro ou do central, e <b>erro em qualquer automação</b> do fluxo.</p>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800">
+              ✅ Trocar aqui muda em <b>tudo</b> de uma vez: o monitor de conexão e o alerta de erro passam a avisar o número novo. Já está ligado com o seu número.
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm text-[#5b6472]">Trocar o número de alerta</label>
+              <input
+                value={novoAlerta}
+                onChange={e => setNovoAlerta(e.target.value)}
+                placeholder="Número com DDD (ex.: 11 99999-8888)"
+                inputMode="tel"
+                className="w-full bg-white border border-[#e5e7eb] rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-[#1c52f8]"
+              />
+              <button
+                onClick={salvarNumeroAlerta}
+                disabled={salvandoAlerta || !novoAlerta.trim()}
+                className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white disabled:opacity-50 rounded-xl py-3 font-semibold"
+              >
+                {salvandoAlerta ? 'Salvando...' : '💾 Salvar número de alerta'}
+              </button>
+              {alertaMsg && <p className="text-sm">{alertaMsg}</p>}
             </div>
           </div>
         )}

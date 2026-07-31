@@ -4,14 +4,20 @@ import { listarInstancias, enviarTexto, sondarEnvio } from '@/lib/evolution'
 import { reiniciarEvolution, easypanelConfigurado } from '@/lib/easypanel'
 import { enviarEmailAlerta } from '@/lib/email'
 
-// Número do Du que recebe os alertas de conexão
-const DU = '5519992252913'
+// Número padrão que recebe os alertas de gerência (se o config não estiver setado)
+const DU_PADRAO = '5519992252913'
 
 export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get('secret')
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'não autorizado' }, { status: 401 })
   }
+
+  // Número de alerta configurável pelo admin (configuracoes.numero_alerta) —
+  // trocar no painel muda aqui e no workflow de erro do n8n de uma vez.
+  const { data: cfgAlerta } = await supabaseAdmin
+    .from('configuracoes').select('valor').eq('chave', 'numero_alerta').maybeSingle()
+  const DU = cfgAlerta?.valor || DU_PADRAO
 
   const instancias = await listarInstancias()
   if (instancias.length === 0) return NextResponse.json({ ok: true, aviso: 'sem instâncias', alertas: 0 })

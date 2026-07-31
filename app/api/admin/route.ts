@@ -21,10 +21,11 @@ export async function GET(req: NextRequest) {
     .select('codigo, nome_barbearia, evolution_instance, evolution_status, sistema_ativo, status_assinatura, criado_em')
     .order('criado_em', { ascending: true })
 
-  const [barberia, dados, barbeirosCount] = await Promise.all([
+  const [barberia, dados, barbeirosCount, cfgAlerta] = await Promise.all([
     estadoInstancia(INSTANCIA_BARBERIA),
     dadosInstancia(INSTANCIA_BARBERIA),
     supabaseAdmin.from('barbeiros').select('id', { count: 'exact', head: true }).eq('ativo', true),
+    supabaseAdmin.from('configuracoes').select('valor').eq('chave', 'numero_alerta').maybeSingle(),
   ])
   const jid = dados?.ownerJid || ''
   const numeroCentral = jid ? jid.replace('@s.whatsapp.net', '').replace(/\D/g, '') : null
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest) {
     barberia_envio_ok: envioOk,
     barberia_numero: numeroCentral,
     barbeiros_total: barbeirosCount.count || 0,
+    numero_alerta: cfgAlerta?.data?.valor || '5519992252913',
     tenants: tenants || [],
   })
 }
@@ -133,6 +135,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Não foi possível gerar a conexão agora. Aguarde uns segundos e tente de novo.', state }, { status: 502 })
     }
     return NextResponse.json({ qr, pairing, state })
+  }
+
+  // Trocar o número que recebe os alertas de gerência (erro no fluxo + queda de
+  // conexão). Guardado em configuracoes.numero_alerta; o vigia e o workflow de
+  // erro do n8n leem daqui → trocar aqui muda em TUDO.
+  if (acao === 'salvar-numero-alerta') {
+    let n = String(body.numero || '').replace(/\D/g, '')
+    if (n.length === 10 || n.length === 11) n = '55' + n
+    if (n.length < 12 || n.length > 13) {
+      return NextResponse.json({ error: 'Número inválido. Use DDD + número (ex.: 11 99999-8888).' }, { status: 400 })
+    }
+    const { error } = await supabaseAdmin
+      .from('configuracoes')
+      .upsert({ chave: 'numero_alerta', valor: n, atualizado_em: new Date().toISOString() }, { onConflict: 'chave' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, numero_alerta: n })
   }
 
   return NextResponse.json({ error: 'ação inválida' }, { status: 400 })
