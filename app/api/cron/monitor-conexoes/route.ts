@@ -20,11 +20,17 @@ export async function GET(req: NextRequest) {
   // 'open' mas dá "Connection Closed" no envio). Sondamos cada 'open' e, se não
   // estiver realmente viva, tratamos como CAIU — assim o vigia pega o zumbi.
   const estadoReal: Record<string, string> = {}
+  const zumbis: string[] = [] // aparecem 'open' mas não enviam — um restart destrava
   await Promise.all(
     instancias.map(async i => {
       if (i.state === 'open') {
         const probe = await sondarEnvio(i.name)
-        estadoReal[i.name] = probe.vivo ? 'open' : 'close'
+        if (probe.vivo) {
+          estadoReal[i.name] = 'open'
+        } else {
+          estadoReal[i.name] = 'close'
+          zumbis.push(i.name)
+        }
       } else {
         estadoReal[i.name] = i.state
       }
@@ -88,11 +94,13 @@ export async function GET(req: NextRequest) {
     // 'connecting'/'unknown' = transitório, não mexe
   }
 
-  // AUTO-CURA: central virou zumbi (nova queda) e sem restart nos últimos 30 min
-  // → reinicia o serviço Evolution no Easypanel (destrava a instância presa que
-  // logout/delete não limpam). Um restart cura todas as instâncias de uma vez.
+  // AUTO-CURA: QUALQUER instância (central OU barbearia) que vire ZUMBI (aparece
+  // 'open' mas não envia) é destravada por 1 restart do serviço Evolution — e um
+  // restart cura todas de uma vez. Limitado a 1x/30min. Só ZUMBI dispara restart:
+  // queda "limpa" (logout de verdade / device_removed) o restart NÃO resolve —
+  // aí é re-scan de QR, e o barbeiro já recebe o link automático (self-service).
   let autoRestart = false
-  if (quedas.some(q => q.name === 'BarberIA') && easypanelConfigurado()) {
+  if (zumbis.length > 0 && easypanelConfigurado()) {
     const lastRst = (anteriores || []).find((a: any) => a.instancia === '__last_restart__')
     const lastMs = lastRst?.atualizado_em ? new Date(lastRst.atualizado_em).getTime() : 0
     if (Date.now() - lastMs > 30 * 60 * 1000) {
@@ -157,6 +165,7 @@ export async function GET(req: NextRequest) {
     emails,
     barbeiros_avisados: barbeirosAvisados,
     auto_restart: autoRestart,
+    zumbis: zumbis.length,
     remetentes_disponiveis: remetentes.length,
     estados: instancias.map(i => ({ nome: i.name, estado: i.state, envia: estadoReal[i.name] === 'open' })),
   })
