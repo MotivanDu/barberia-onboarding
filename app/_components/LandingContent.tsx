@@ -295,15 +295,8 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
           <p className="text-center text-sm mt-3 max-w-xl mx-auto" style={{ color: 'var(--muted)' }}>
             Todos os recursos do BarberIA por um preço fixo — sem taxas escondidas, sem surpresa no fim do mês.
           </p>
-          <p className="text-center mt-6 text-xl font-bold">
-            Você só corta. O BarberIA traz o cliente.
-          </p>
           <p className="text-center text-sm mt-2 max-w-xl mx-auto" style={{ color: 'var(--muted)' }}>
             Agenda cheia, clientes voltando sozinhos e atendimento no WhatsApp trabalhando por você.
-          </p>
-          <p className="text-center text-sm mt-5" style={{ color: 'var(--muted)' }}>
-            Cancele quando quiser no mensal. No plano anual, ganhe{' '}
-            <strong style={{ color: AZUL }}>R$ 200 de desconto</strong>.
           </p>
 
           <div className="grid md:grid-cols-2 gap-5 mt-10 items-start">
