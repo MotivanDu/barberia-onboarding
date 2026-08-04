@@ -673,11 +673,17 @@ export default function PainelPage() {
                     >
                       📋 Copiar código
                     </button>
+                    {numeroPareamento && (
+                      <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-sm text-amber-900 text-left">
+                        ⚠️ Digite este código <b>no celular do número {numeroPareamento}</b> — tem que ser o WhatsApp <b>desse mesmo número</b>, senão o WhatsApp recusa.
+                      </div>
+                    )}
                     <p className="text-[#5b6472] text-sm text-left leading-relaxed">
-                      No celular da barbearia:<br />
-                      1. WhatsApp → <b>Configurações</b> → <b>Aparelhos conectados</b><br />
+                      Nesse celular, no WhatsApp:<br />
+                      1. <b>Android:</b> Configurações (⋮) → <b>Aparelhos conectados</b><br />
+                      &nbsp;&nbsp;&nbsp;<b>iPhone:</b> Ajustes → <b>Aparelhos conectados</b><br />
                       2. <b>Conectar um aparelho</b><br />
-                      3. Toque em <b>&quot;Conectar com número de telefone&quot;</b><br />
+                      3. Toque em <b>&quot;Conectar com número de telefone&quot;</b> (embaixo)<br />
                       4. Cole ou digite o código acima
                     </p>
                     <p className="text-[#5b6472] text-xs">O código expira rápido — se não der tempo, gere outro.</p>

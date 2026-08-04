@@ -92,6 +92,22 @@ export async function enviarTexto(instanceName: string, numero: string, texto: s
   })
 }
 
+// Valida um número no WhatsApp usando a instância CENTRAL (que está conectada) e
+// devolve o número CANÔNICO (o do jid — resolve o 9º dígito). Instância nova ainda
+// não conecta, então não dá pra consultar por ela; a central resolve.
+export async function numeroCanonico(numero: string): Promise<{ ok: boolean; existe: boolean; canon: string }> {
+  const r = await evo('/chat/whatsappNumbers/BarberIA', {
+    method: 'POST',
+    body: JSON.stringify({ numbers: [numero] }),
+  })
+  if (!r.ok) return { ok: false, existe: false, canon: numero } // não deu pra checar — segue com o número
+  const arr = Array.isArray(r.data) ? r.data : []
+  const f = arr[0]
+  if (!f || !f.exists) return { ok: true, existe: false, canon: numero }
+  const doJid = String(f.jid || '').replace('@s.whatsapp.net', '').replace(/\D/g, '')
+  return { ok: true, existe: true, canon: doJid || String(f.number || numero).replace(/\D/g, '') }
+}
+
 // Sonda de VIDA REAL do envio: o /chat/fetchProfile exige o socket do WhatsApp
 // realmente vivo. Numa instância "open" zumbi (aparece conectada mas não envia —
 // ex.: chip derrubado) isto retorna 500 "Connection Closed". NÃO envia mensagem

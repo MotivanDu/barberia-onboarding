@@ -9,6 +9,7 @@ import {
   desligarInstancia,
   logoutInstancia,
   dadosInstancia,
+  numeroCanonico,
 } from '@/lib/evolution'
 import { reiniciarEvolution, easypanelConfigurado } from '@/lib/easypanel'
 
@@ -64,7 +65,9 @@ export async function POST(req: NextRequest) {
     const { codigo, acao, numero, semRestart } = await req.json()
     if (!codigo) return NextResponse.json({ error: 'codigo obrigatório' }, { status: 400 })
 
-    // Pareamento por código (fallback p/ iPhone): normaliza o número
+    // Conexão por CÓDIGO de pareamento: normaliza + valida o número no WhatsApp e
+    // usa o formato CANÔNICO (resolve o 9º dígito) — senão o WhatsApp rejeita o código
+    // com "confira o número no dispositivo".
     let numeroLimpo: string | undefined
     if (numero) {
       numeroLimpo = String(numero).replace(/\D/g, '')
@@ -75,6 +78,14 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       }
+      const chk = await numeroCanonico(numeroLimpo)
+      if (chk.ok && !chk.existe) {
+        return NextResponse.json(
+          { error: 'Esse número não tem WhatsApp ativo. Confira o número (com DDD) e se o WhatsApp já está instalado nele.' },
+          { status: 400 }
+        )
+      }
+      if (chk.existe) numeroLimpo = chk.canon
     }
 
     const tenant = await buscarTenant(codigo)
@@ -120,10 +131,14 @@ export async function POST(req: NextRequest) {
     if (hash) patch.evolution_apikey = hash
     await supabaseAdmin.from('tenants').update(patch).eq('id', tenant.id)
 
-    // Destrava a sessão: instância presa em 'open' morto (aparece conectada mas não
-    // envia) não gera QR — deslogar libera um QR/código novo. NÃO apaga a instância.
-    await logoutInstancia(instancia).catch(() => {})
-    await new Promise(r => setTimeout(r, 1500))
+    // Destrava a sessão SÓ se a instância JÁ existia (presa em 'open' morto). Uma
+    // instância recém-criada (primeira conexão) NÃO deve ser deslogada — deslogar um
+    // socket novo estraga o código de pareamento (WhatsApp rejeita com "confira o
+    // número"). criada.ok = criada agora → pula o logout.
+    if (!criada.ok) {
+      await logoutInstancia(instancia).catch(() => {})
+      await new Promise(r => setTimeout(r, 1500))
+    }
 
     // Conexão: QR (padrão) e/ou pairing code de 8 dígitos (fallback iPhone) — via /connect
     let conectar = await obterQR(instancia, numeroLimpo)
