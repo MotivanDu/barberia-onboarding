@@ -189,6 +189,7 @@ export default function PainelPage() {
   const [pairing, setPairing] = useState<string | null>(null)
   const [modoQR, setModoQR] = useState(false) // false = conectar por CÓDIGO (padrão, mais fácil); true = QR
   const [trocandoNumero, setTrocandoNumero] = useState(false) // força a tela de conexão mesmo já conectado
+  const [copiado, setCopiado] = useState(false)
   const [numeroPareamento, setNumeroPareamento] = useState('')
   const [clientesTotal, setClientesTotal] = useState(0)
   const [dash, setDash] = useState<DashData | null>(null)
@@ -288,6 +289,7 @@ export default function PainelPage() {
     setGerandoQr(true)
     setQr(null)
     setPairing(null)
+    setCopiado(false)
     try {
       const r = await fetch('/api/qrcode', {
         method: 'POST',
@@ -649,9 +651,9 @@ export default function PainelPage() {
                     <input
                       value={numeroPareamento}
                       onChange={e => setNumeroPareamento(e.target.value)}
-                      placeholder="WhatsApp da barbearia com DDD (ex.: 11 99999-8888)"
+                      placeholder="Coloque seu número assim: 19922992222"
                       inputMode="tel"
-                      className="w-full bg-white border border-[#e5e7eb] rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-[#1c52f8]"
+                      className="w-full bg-white border border-[#e5e7eb] rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#1c52f8]"
                     />
                     <button
                       onClick={() => numeroPareamento.trim() && conectarWhats('conectar', numeroPareamento)}
@@ -664,18 +666,19 @@ export default function PainelPage() {
                 ) : (
                   <div className="space-y-3 bg-[#f6f6f4] border-2 border-[#1c52f8] rounded-xl p-5">
                     <p className="text-[#16181d] font-medium">Seu código de conexão:</p>
-                    <p className="font-mono text-5xl font-bold tracking-widest text-[#1c52f8]">
+                    <p className="font-mono text-3xl sm:text-4xl font-bold tracking-wide text-[#1c52f8] whitespace-nowrap">
                       {pairing.slice(0, 4)}-{pairing.slice(4)}
                     </p>
                     <button
-                      onClick={() => { navigator.clipboard.writeText(pairing); flash('✅ Código copiado!') }}
-                      className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white rounded-xl py-3 font-semibold"
+                      onClick={() => { navigator.clipboard.writeText(pairing); setCopiado(true); setTimeout(() => setCopiado(false), 5000) }}
+                      className={`w-full rounded-xl py-3 font-semibold text-white transition-colors ${copiado ? 'bg-emerald-500' : 'bg-[#1c52f8] hover:bg-[#1746d8]'}`}
                     >
-                      📋 Copiar código
+                      {copiado ? '✅ Código Copiado' : '📋 Copiar código'}
                     </button>
+                    <p className="text-[#16181d] font-semibold text-center">Coloque o Código no seu WhatsApp</p>
                     {numeroPareamento && (
                       <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-sm text-amber-900 text-left">
-                        ⚠️ Digite este código <b>no celular do número {numeroPareamento}</b> — tem que ser o WhatsApp <b>desse mesmo número</b>, senão o WhatsApp recusa.
+                        ⚠️ Coloque no celular do número <b>{numeroPareamento}</b> — tem que ser o WhatsApp <b>desse mesmo número</b>, senão o WhatsApp recusa.
                       </div>
                     )}
                     <p className="text-[#5b6472] text-sm text-left leading-relaxed">
