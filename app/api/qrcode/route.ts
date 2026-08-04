@@ -10,6 +10,7 @@ import {
   logoutInstancia,
   dadosInstancia,
 } from '@/lib/evolution'
+import { reiniciarEvolution, easypanelConfigurado } from '@/lib/easypanel'
 
 // A instância compartilhada é o canal do BarberIA com os barbeiros — NUNCA apagar/reciclar
 const INSTANCIA_RESERVADA = 'BarberIA'
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { codigo, acao, numero } = await req.json()
+    const { codigo, acao, numero, semRestart } = await req.json()
     if (!codigo) return NextResponse.json({ error: 'codigo obrigatório' }, { status: 400 })
 
     // Pareamento por código (fallback p/ iPhone): normaliza o número
@@ -151,15 +152,27 @@ export async function POST(req: NextRequest) {
     const estado = await estadoInstancia(instancia)
     const state = estado?.data?.instance?.state || 'close'
 
-    if (numeroLimpo && !pairing) {
-      return NextResponse.json(
-        { error: 'Não foi possível gerar o código. Confira o número (com DDD) e tente novamente.', state },
-        { status: 502 }
-      )
-    }
     if (!qr && !pairing) {
+      // Instância travada não gera código nem QR (sessão presa no processo do
+      // Evolution). Reinicia o serviço no Easypanel (destrava) e pede pra tentar
+      // de novo em ~45s — o retry (semRestart=true) não reinicia de novo.
+      if (easypanelConfigurado() && !semRestart) {
+        const rst = await reiniciarEvolution()
+        if (rst.ok) {
+          return NextResponse.json({
+            reiniciando: true,
+            state,
+            aviso: 'A conexão travou. Reiniciei o servidor — aguarde ~45 segundos que eu tento de novo automaticamente.',
+          })
+        }
+      }
       return NextResponse.json(
-        { error: 'Não foi possível gerar o QR Code. Aguarde uns segundos e tente de novo.', state },
+        {
+          error: numeroLimpo
+            ? 'Não foi possível gerar o código agora. Aguarde uns segundos e tente de novo.'
+            : 'Não foi possível gerar o QR Code. Aguarde uns segundos e tente de novo.',
+          state,
+        },
         { status: 502 }
       )
     }

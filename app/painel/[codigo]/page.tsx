@@ -187,7 +187,8 @@ export default function PainelPage() {
   const [qr, setQr] = useState<string | null>(null)
   const [gerandoQr, setGerandoQr] = useState(false)
   const [pairing, setPairing] = useState<string | null>(null)
-  const [modoCodigo, setModoCodigo] = useState(false)
+  const [modoQR, setModoQR] = useState(false) // false = conectar por CÓDIGO (padrão, mais fácil); true = QR
+  const [trocandoNumero, setTrocandoNumero] = useState(false) // força a tela de conexão mesmo já conectado
   const [numeroPareamento, setNumeroPareamento] = useState('')
   const [clientesTotal, setClientesTotal] = useState(0)
   const [dash, setDash] = useState<DashData | null>(null)
@@ -277,10 +278,10 @@ export default function PainelPage() {
     setHorarios(hs => hs.map(h => (h.dia_semana === dia ? { ...h, [campo]: valor } : h)))
   }
 
-  const conectarWhats = async (acao: 'conectar' | 'novo-numero', numero?: string) => {
+  const conectarWhats = async (acao: 'conectar' | 'novo-numero', numero?: string, semRestart?: boolean) => {
     if (acao === 'novo-numero') {
       const ok = window.confirm(
-        'Mudei de número:\n\nIsso desconecta o WhatsApp atual e gera um novo QR Code para o número novo.\n\nSeus clientes, agendamentos e histórico continuam TODOS salvos.\n\nContinuar?'
+        'Mudei de número:\n\nIsso desconecta o WhatsApp atual e conecta o número novo.\n\nSeus clientes, agendamentos e histórico continuam TODOS salvos.\n\nContinuar?'
       )
       if (!ok) return
     }
@@ -291,11 +292,21 @@ export default function PainelPage() {
       const r = await fetch('/api/qrcode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codigo, acao, numero }),
+        body: JSON.stringify({ codigo, acao, numero, semRestart }),
       })
       const d = await r.json()
+      if (!r.ok) {
+        setGerandoQr(false)
+        return flash('❌ ' + (d.error || 'Erro ao conectar'))
+      }
+      // instância travada → o servidor foi reiniciado; espera ~45s e tenta de novo
+      // automaticamente (semRestart evita loop). Mantém "Gerando...".
+      if (d.reiniciando) {
+        flash('⏳ ' + (d.aviso || 'Reiniciei o servidor, aguarde ~45s...'))
+        setTimeout(() => conectarWhats(acao, numero, true), 45000)
+        return
+      }
       setGerandoQr(false)
-      if (!r.ok) return flash('❌ ' + (d.error || 'Erro ao gerar QR'))
       if (d.state === 'open' && !d.qr && !d.pairing) {
         flash('✅ WhatsApp já está conectado!')
         carregar()
@@ -312,7 +323,8 @@ export default function PainelPage() {
             clearInterval(intervalo)
             setQr(null)
             setPairing(null)
-            setModoCodigo(false)
+            setModoQR(false)
+            setTrocandoNumero(false)
             flash('✅ WhatsApp conectado com sucesso!')
             carregar()
           }
@@ -625,62 +637,93 @@ export default function PainelPage() {
                 </p>
               </div>
             )}
-            {qr && !modoCodigo && (
-              <div className="space-y-2">
-                <p className="text-[#16181d] font-medium">Escaneie com o WhatsApp da barbearia:</p>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qr} alt="QR Code de conexão" className="mx-auto rounded-xl bg-white p-3 w-64 h-64 object-contain" />
-                <p className="text-[#5b6472] text-xs">WhatsApp → Aparelhos conectados → Conectar um aparelho</p>
-              </div>
-            )}
-            {pairing && modoCodigo && (
-              <div className="space-y-3 bg-[#f6f6f4] border border-[#e5e7eb] rounded-xl p-5">
-                <p className="text-[#16181d] font-medium">Digite este código no WhatsApp:</p>
-                <p className="font-mono text-5xl font-bold tracking-widest text-[#1c52f8]">
-                  {pairing.slice(0, 4)}-{pairing.slice(4)}
-                </p>
-                <p className="text-[#5b6472] text-sm text-left leading-relaxed">
-                  No celular da barbearia:<br />
-                  1. WhatsApp → <b>Configurações</b> → <b>Aparelhos conectados</b><br />
-                  2. <b>Conectar um aparelho</b><br />
-                  3. Toque em <b>"Conectar com número de telefone"</b><br />
-                  4. Digite o código acima
-                </p>
-                <p className="text-[#5b6472] text-xs">O código expira rápido — se não der tempo, gere outro.</p>
-              </div>
-            )}
-            {whats.state !== 'open' && !modoCodigo && (
-              <button
-                onClick={() => conectarWhats('conectar')}
-                disabled={gerandoQr}
-                className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white disabled:opacity-50 rounded-xl py-3 font-semibold"
-              >
-                {gerandoQr ? 'Gerando QR Code...' : qr ? '🔄 Gerar novo QR Code' : '📲 Conectar WhatsApp (QR Code)'}
-              </button>
-            )}
-            {whats.state !== 'open' && (
-              <div className="bg-[#eef0f4] rounded-xl p-4 space-y-3">
-                <button onClick={() => setModoCodigo(!modoCodigo)} className="text-[#1c52f8] hover:underline text-sm">
-                  {modoCodigo ? '← Voltar para o QR Code' : '📞 Não consegue escanear? (iPhone) — Conectar com código'}
-                </button>
-                {modoCodigo && (
-                  <div className="space-y-2">
+            {/* CONECTAR POR CÓDIGO — método principal (mais fácil, no próprio celular) */}
+            {(whats.state !== 'open' || trocandoNumero) && !modoQR && (
+              <div className="space-y-3">
+                {!pairing ? (
+                  <div className="space-y-3">
+                    <p className="text-[#16181d] font-semibold text-lg">📲 Conecte aqui o seu WhatsApp</p>
+                    <p className="text-[#5b6472] text-sm">
+                      Digite o número da barbearia e conecte pelo próprio celular — rápido e sem precisar de computador.
+                    </p>
                     <input
                       value={numeroPareamento}
                       onChange={e => setNumeroPareamento(e.target.value)}
-                      placeholder="Número do WhatsApp com DDD (ex.: 11 99999-8888)"
+                      placeholder="WhatsApp da barbearia com DDD (ex.: 11 99999-8888)"
                       inputMode="tel"
                       className="w-full bg-white border border-[#e5e7eb] rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-[#1c52f8]"
                     />
                     <button
                       onClick={() => numeroPareamento.trim() && conectarWhats('conectar', numeroPareamento)}
                       disabled={gerandoQr || !numeroPareamento.trim()}
-                      className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white disabled:opacity-50 rounded-xl py-3 font-semibold"
+                      className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white disabled:opacity-50 rounded-xl py-4 font-bold text-lg"
                     >
-                      {gerandoQr ? 'Gerando código...' : '🔢 Gerar código de 8 dígitos'}
+                      {gerandoQr ? 'Gerando código...' : '🔗 Conectar WhatsApp'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 bg-[#f6f6f4] border-2 border-[#1c52f8] rounded-xl p-5">
+                    <p className="text-[#16181d] font-medium">Seu código de conexão:</p>
+                    <p className="font-mono text-5xl font-bold tracking-widest text-[#1c52f8]">
+                      {pairing.slice(0, 4)}-{pairing.slice(4)}
+                    </p>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(pairing); flash('✅ Código copiado!') }}
+                      className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white rounded-xl py-3 font-semibold"
+                    >
+                      📋 Copiar código
+                    </button>
+                    <p className="text-[#5b6472] text-sm text-left leading-relaxed">
+                      No celular da barbearia:<br />
+                      1. WhatsApp → <b>Configurações</b> → <b>Aparelhos conectados</b><br />
+                      2. <b>Conectar um aparelho</b><br />
+                      3. Toque em <b>&quot;Conectar com número de telefone&quot;</b><br />
+                      4. Cole ou digite o código acima
+                    </p>
+                    <p className="text-[#5b6472] text-xs">O código expira rápido — se não der tempo, gere outro.</p>
+                    <button
+                      onClick={() => numeroPareamento.trim() && conectarWhats('conectar', numeroPareamento)}
+                      disabled={gerandoQr}
+                      className="text-[#1c52f8] hover:underline text-sm disabled:opacity-50"
+                    >
+                      🔄 Gerar outro código
                     </button>
                   </div>
                 )}
+                <button
+                  onClick={() => { setModoQR(true); setPairing(null) }}
+                  className="text-[#5b6472] hover:text-[#16181d] text-sm underline w-full text-center"
+                >
+                  Prefere QR Code? (precisa de outro aparelho pra escanear)
+                </button>
+              </div>
+            )}
+
+            {/* CONECTAR POR QR — método secundário */}
+            {(whats.state !== 'open' || trocandoNumero) && modoQR && (
+              <div className="space-y-3">
+                {qr ? (
+                  <div className="space-y-2">
+                    <p className="text-[#16181d] font-medium">Escaneie com o WhatsApp da barbearia:</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={qr} alt="QR Code de conexão" className="mx-auto rounded-xl bg-white p-3 w-64 h-64 object-contain" />
+                    <p className="text-[#5b6472] text-xs">WhatsApp → Aparelhos conectados → Conectar um aparelho</p>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => conectarWhats('conectar')}
+                    disabled={gerandoQr}
+                    className="w-full bg-[#eef0f4] hover:bg-[#e0e3e8] text-[#16181d] disabled:opacity-50 rounded-xl py-3 font-medium"
+                  >
+                    {gerandoQr ? 'Gerando QR Code...' : '📷 Gerar QR Code'}
+                  </button>
+                )}
+                <button
+                  onClick={() => { setModoQR(false); setQr(null) }}
+                  className="text-[#1c52f8] hover:underline text-sm w-full text-center"
+                >
+                  ← Voltar para o código (mais fácil)
+                </button>
               </div>
             )}
             <div className="border-t border-gray-800 pt-4 mt-2 space-y-3">
@@ -690,9 +733,12 @@ export default function PainelPage() {
                 agendamentos, histórico e relatórios continuam TODOS salvos. Nada é perdido.
               </div>
               <button
-                onClick={() => conectarWhats('novo-numero')}
-                disabled={gerandoQr}
-                className="w-full bg-[#1c52f8] hover:bg-[#1746d8] text-white disabled:opacity-50 rounded-xl py-3 font-semibold"
+                onClick={() => {
+                  if (window.confirm('Mudei de número:\n\nIsso desconecta o WhatsApp atual e conecta o novo. Seus clientes, agendamentos e histórico continuam TODOS salvos.\n\nContinuar?')) {
+                    setTrocandoNumero(true); setQr(null); setPairing(null); setModoQR(false); setNumeroPareamento('')
+                  }
+                }}
+                className="w-full bg-white border border-[#1c52f8] text-[#1c52f8] hover:bg-[#eef2ff] rounded-xl py-3 font-semibold"
               >
                 📱 Mudei de número (colocar outro)
               </button>
