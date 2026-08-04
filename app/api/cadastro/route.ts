@@ -75,8 +75,10 @@ export async function POST(req: NextRequest) {
       .single()
     if (tenantError) throw tenantError
 
-    // Barbeiro
-    const telefoneLimpo = telefone_barbeiro.replace(/\D/g, '')
+    // Barbeiro — normaliza o telefone com DDI 55 (senão o WhatsApp rejeita "exists:false"
+    // e nenhuma notificação/boas-vindas chega). DDD+número (10-11 díg) → prefixa 55.
+    let telefoneLimpo = String(telefone_barbeiro).replace(/\D/g, '')
+    if (telefoneLimpo.length === 10 || telefoneLimpo.length === 11) telefoneLimpo = '55' + telefoneLimpo
     const { data: barbeiro, error: barbeiroError } = await supabaseAdmin
       .from('barbeiros')
       .insert({ tenant_id: tenant.id, nome: nome_barbeiro, telefone: telefoneLimpo, ativo: true })
