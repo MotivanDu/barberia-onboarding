@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
 import { usuarioAutorizado } from '@/lib/adminAuth'
-import {
-  asaasConfigurado,
-  obterOuCriarCliente,
-  criarAssinatura,
-  atualizarValorAssinatura,
-  cancelarAssinatura,
-} from '@/lib/asaas'
+import { cancelarAssinaturaStripe } from '@/lib/stripe'
 
 function autorizado(senha: string | null) {
   return usuarioAutorizado(senha) !== null
@@ -243,74 +237,20 @@ export async function POST(req: NextRequest) {
         .single()
       if (!tenant) return NextResponse.json({ error: 'Barbearia não encontrada' }, { status: 404 })
 
+      // Só ajusta o plano do tenant (MRR/gestão). A cobrança de verdade acontece
+      // no /cadastro (Stripe). Remover o plano cancela a assinatura no Stripe.
       const patch: Record<string, unknown> = {
         plano_id: plano_id || null,
         contrato_inicio: plano_id ? new Date().toISOString().slice(0, 10) : null,
       }
-
-      // Integração Asaas (quando configurado)
-      if (asaasConfigurado()) {
-        if (!plano_id) {
-          // removeu o plano → cancela assinatura no Asaas
-          if (tenant.asaas_subscription_id) {
-            const c = await cancelarAssinatura(tenant.asaas_subscription_id)
-            if (!c.ok) return NextResponse.json({ error: `Asaas: ${c.erro}` }, { status: 502 })
-            patch.asaas_subscription_id = null
-          }
-        } else {
-          const { data: plano } = await supabaseAdmin.from('planos').select('*').eq('id', plano_id).single()
-          if (!plano) return NextResponse.json({ error: 'Plano não encontrado' }, { status: 404 })
-
-          if (!tenant.cpf_cnpj) {
-            return NextResponse.json(
-              { error: 'Cadastre o CPF/CNPJ da barbearia antes de ativar a cobrança (campo na lista de barbearias).' },
-              { status: 400 }
-            )
-          }
-
-          const barbeiro: any = Array.isArray(tenant.barbeiros) ? tenant.barbeiros[0] : tenant.barbeiros
-          let customerId = tenant.asaas_customer_id
-          if (!customerId) {
-            const cli = await obterOuCriarCliente({
-              nome: barbeiro?.nome || tenant.nome_barbearia,
-              cpfCnpj: tenant.cpf_cnpj,
-              telefone: barbeiro?.telefone || null,
-              externalReference: tenant.codigo,
-            })
-            if (!cli.ok) return NextResponse.json({ error: `Asaas: ${cli.erro}` }, { status: 502 })
-            customerId = cli.id
-            patch.asaas_customer_id = customerId
-          }
-
-          // valor efetivamente cobrado (150 mensal, 1200 anual) e método/ciclo do plano
-          const valorCobranca = parseFloat(plano.valor_cobranca ?? plano.preco_mensal)
-          // Split automático com o sócio (ativado quando ASAAS_SPLIT_WALLET_ID estiver setado)
-          const splitWallet = process.env.ASAAS_SPLIT_WALLET_ID
-          const splitPct = parseFloat(process.env.ASAAS_SPLIT_PCT || '50')
-          const split = splitWallet ? [{ walletId: splitWallet, percentualValue: splitPct }] : undefined
-
-          // Troca de plano: cancela a assinatura antiga e recria com o ciclo/método/valor do novo
-          // plano (só atualizar o valor não mudaria ciclo mensal↔anual nem cartão↔pix).
-          if (tenant.asaas_subscription_id) {
-            await cancelarAssinatura(tenant.asaas_subscription_id)
-          }
-          const ass = await criarAssinatura({
-            customerId: customerId!,
-            valor: valorCobranca,
-            billingType: plano.billing_type || 'UNDEFINED',
-            cycle: plano.ciclo || 'MONTHLY',
-            split,
-            descricao: `BarberIA — plano ${plano.nome} (${tenant.nome_barbearia})`,
-            externalReference: tenant.codigo,
-          })
-          if (!ass.ok) return NextResponse.json({ error: `Asaas: ${ass.erro}` }, { status: 502 })
-          patch.asaas_subscription_id = ass.id
-        }
+      if (!plano_id && tenant.asaas_subscription_id) {
+        await cancelarAssinaturaStripe(tenant.asaas_subscription_id)
+        patch.asaas_subscription_id = null
       }
 
       const { error } = await supabaseAdmin.from('tenants').update(patch).eq('codigo', cod)
       if (error) throw error
-      return NextResponse.json({ ok: true, asaas: asaasConfigurado() })
+      return NextResponse.json({ ok: true })
     }
 
     if (body.acao === 'salvar-cpf') {
@@ -352,24 +292,8 @@ export async function POST(req: NextRequest) {
       if (id) {
         const { error } = await supabaseAdmin.from('planos').update(dados).eq('id', id)
         if (error) throw error
-
-        // Propaga o novo valor para TODAS as assinaturas Asaas deste plano
-        if (asaasConfigurado()) {
-          const { data: assinantes } = await supabaseAdmin
-            .from('tenants')
-            .select('codigo, asaas_subscription_id')
-            .eq('plano_id', id)
-            .not('asaas_subscription_id', 'is', null)
-          const falhas: string[] = []
-          for (const t of assinantes || []) {
-            const up = await atualizarValorAssinatura(t.asaas_subscription_id!, valorCobranca)
-            if (!up.ok) falhas.push(`${t.codigo}: ${up.erro}`)
-          }
-          if (falhas.length > 0) {
-            return NextResponse.json({ ok: true, aviso: `Valor salvo, mas falhou no Asaas para: ${falhas.join('; ')}` })
-          }
-          return NextResponse.json({ ok: true, sincronizados: (assinantes || []).length })
-        }
+        // Assinaturas Stripe já criadas mantêm o preço contratado; a mudança de valor
+        // vale para os NOVOS cadastros (não repreça retroativamente quem já assinou).
       } else {
         const { error } = await supabaseAdmin.from('planos').insert(dados)
         if (error) throw error
@@ -394,8 +318,8 @@ export async function POST(req: NextRequest) {
       const cod = String(body.codigo).toUpperCase()
       const { data: tenant } = await supabaseAdmin.from('tenants').select('id, asaas_subscription_id').eq('codigo', cod).single()
       if (!tenant) return NextResponse.json({ error: 'Barbearia não encontrada' }, { status: 404 })
-      if (tenant.asaas_subscription_id && asaasConfigurado()) {
-        await cancelarAssinatura(tenant.asaas_subscription_id).catch(() => {})
+      if (tenant.asaas_subscription_id) {
+        await cancelarAssinaturaStripe(tenant.asaas_subscription_id)
       }
       for (const tbl of ['agendamentos', 'mensagens', 'conversas_ia', 'horarios_funcionamento', 'servicos', 'clientes', 'barbeiros']) {
         await supabaseAdmin.from(tbl).delete().eq('tenant_id', tenant.id)

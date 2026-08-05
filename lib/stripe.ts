@@ -85,6 +85,50 @@ export async function criarPagamentoAnual(params: {
   }
 }
 
+// Link de RENOVAÇÃO (anual) — Checkout Session hospedada pra mandar no WhatsApp.
+// metadata.codigo no payment_intent → o webhook ativa/renova pela mesma barbearia.
+export async function criarSessaoRenovacao(params: {
+  customerId: string
+  codigo: string
+  valorCentavos: number
+  nomeBarbearia: string
+}): Promise<string | null> {
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://barberia-onboarding.vercel.app'
+  try {
+    const s = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      customer: params.customerId,
+      line_items: [
+        {
+          price_data: {
+            currency: 'brl',
+            product_data: { name: `BarberIA — renovação anual (${params.nomeBarbearia})` },
+            unit_amount: params.valorCentavos,
+          },
+          quantity: 1,
+        },
+      ],
+      payment_intent_data: { metadata: { codigo: params.codigo, plano: 'renovacao' } },
+      metadata: { codigo: params.codigo },
+      success_url: `${base}/cadastro/sucesso?codigo=${params.codigo}`,
+    })
+    return s.url
+  } catch {
+    return null
+  }
+}
+
+// Cancela a assinatura no Stripe (id sub_...). Cobrança única (pi_...) não é
+// assinatura — nada a cancelar. Idempotente (ignora se já cancelada/inexistente).
+export async function cancelarAssinaturaStripe(id: string | null): Promise<void> {
+  if (!id || !id.startsWith('sub_')) return
+  try {
+    await stripe.subscriptions.cancel(id)
+  } catch {
+    // já cancelada / não existe — ok
+  }
+}
+
 // Verifica a assinatura do webhook (garante que o evento veio mesmo do Stripe).
 export function construirEvento(rawBody: string, assinatura: string): Stripe.Event {
   const segredo = process.env.STRIPE_WEBHOOK_SECRET || ''

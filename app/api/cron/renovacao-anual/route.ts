@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { criarCobrancaAvulsa, buscarCobrancaPorRef } from '@/lib/asaas'
+import { criarSessaoRenovacao } from '@/lib/stripe'
 import { enviarTexto } from '@/lib/evolution'
 
 const DIA_MS = 24 * 60 * 60 * 1000
-const PAGO = ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH']
 
 function addMeses(d: Date, m: number) {
   const x = new Date(d)
@@ -65,10 +64,6 @@ export async function GET(req: NextRequest) {
   const barbPorTenant: Record<string, { nome: string; telefone: string }> = {}
   for (const b of barbeiros || []) if (!barbPorTenant[b.tenant_id]) barbPorTenant[b.tenant_id] = { nome: b.nome, telefone: b.telefone }
 
-  const splitWallet = process.env.ASAAS_SPLIT_WALLET_ID
-  const splitPct = parseFloat(process.env.ASAAS_SPLIT_PCT || '50')
-  const split = splitWallet ? [{ walletId: splitWallet, percentualValue: splitPct }] : undefined
-
   const hoje = new Date()
   const hoje0 = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
   const resultados: any[] = []
@@ -84,42 +79,23 @@ export async function GET(req: NextRequest) {
 
       if (dias > 30) continue // ainda longe do vencimento
 
-      const ref = `RENOV-${t.codigo}-${vencimento.getFullYear()}${String(vencimento.getMonth() + 1).padStart(2, '0')}`
-      const cobranca = await buscarCobrancaPorRef(ref)
+      if (!deveEnviar(dias)) continue
 
-      // já renovou? estende o contrato por mais 1 ciclo e não cobra de novo
-      if (cobranca && PAGO.includes(cobranca.status)) {
-        await supabaseAdmin
-          .from('tenants')
-          .update({ contrato_inicio: venc0.toISOString().slice(0, 10) })
-          .eq('id', t.id)
-        renovados++
-        resultados.push({ codigo: t.codigo, acao: 'renovado (contrato estendido)' })
+      const barb = barbPorTenant[t.id]
+      if (!barb?.telefone) {
+        resultados.push({ codigo: t.codigo, erro: 'sem telefone' })
         continue
       }
 
-      if (!deveEnviar(dias)) continue
-
-      // link de renovação (reusa o pendente ou cria um novo)
-      let link = cobranca?.invoiceUrl || null
+      // link de renovação: Checkout Session hospedada do Stripe (paga → webhook ativa)
+      const link = await criarSessaoRenovacao({
+        customerId: t.asaas_customer_id!,
+        codigo: t.codigo,
+        valorCentavos: Math.round(valorAnual * 100),
+        nomeBarbearia: t.nome_barbearia,
+      })
       if (!link) {
-        const cob = await criarCobrancaAvulsa({
-          customerId: t.asaas_customer_id!,
-          valor: valorAnual,
-          split,
-          descricao: `BarberIA — renovação anual (${t.nome_barbearia})`,
-          externalReference: ref,
-        })
-        if (!cob.ok) {
-          resultados.push({ codigo: t.codigo, erro: `cobrança: ${cob.erro}` })
-          continue
-        }
-        link = cob.invoiceUrl
-      }
-
-      const barb = barbPorTenant[t.id]
-      if (!barb?.telefone || !link) {
-        resultados.push({ codigo: t.codigo, erro: 'sem telefone ou link' })
+        resultados.push({ codigo: t.codigo, erro: 'falha ao gerar link de renovação' })
         continue
       }
 

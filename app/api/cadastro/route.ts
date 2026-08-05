@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import QRCode from 'qrcode'
-import { asaasConfigurado, obterOuCriarCliente, criarAssinatura, criarCobrancaAvulsa, linkCobrancaPendente } from '@/lib/asaas'
 import { stripeConfigurado, obterOuCriarClienteStripe, criarAssinaturaMensal, criarPagamentoAnual } from '@/lib/stripe'
 
 function gerarCodigo(nome: string): string {
@@ -24,12 +23,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
     }
 
-    // Pagamento é obrigatório (sem período de teste) → CPF/CNPJ + Asaas configurado
+    // Pagamento é obrigatório (sem período de teste) → CPF/CNPJ + Stripe configurado
     const cpfLimpo = String(cpf_cnpj || '').replace(/\D/g, '')
     if (cpfLimpo.length !== 11 && cpfLimpo.length !== 14) {
       return NextResponse.json({ error: 'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido para a cobrança.' }, { status: 400 })
     }
-    if (!asaasConfigurado()) {
+    if (!stripeConfigurado()) {
       return NextResponse.json({ error: 'Pagamento indisponível no momento. Tente novamente mais tarde.' }, { status: 503 })
     }
 
@@ -114,95 +113,27 @@ export async function POST(req: NextRequest) {
       if (e) throw e
     }
 
-    // ---- STRIPE (checkout embutido) — ativado por gateway:'stripe' (?gw=stripe).
-    // Roda em PARALELO com o Asaas; a virada final é só mudar o default no front.
-    if (String(body.gateway || '') === 'stripe' && stripeConfigurado()) {
-      const valorCob = parseFloat(planoEscolhido.valor_cobranca ?? planoEscolhido.preco_mensal)
-      const cliStr = await obterOuCriarClienteStripe({
-        nome: nome_barbeiro || nome_barbearia,
-        cpfCnpj: cpfLimpo,
-        telefone: telefoneLimpo,
-        codigo,
-      })
-      const pg = anual
-        ? await criarPagamentoAnual({ customerId: cliStr, codigo, valorCentavos: Math.round(valorCob * 100) })
-        : await criarAssinaturaMensal({ customerId: cliStr, codigo })
-      if (!pg.ok) {
-        return NextResponse.json({ error: `Não foi possível iniciar o pagamento: ${pg.erro}`, codigo }, { status: 502 })
-      }
-      await supabaseAdmin
-        .from('tenants')
-        .update({ asaas_customer_id: cliStr, asaas_subscription_id: pg.id })
-        .eq('id', tenant.id)
-      return NextResponse.json({
-        success: true,
-        tenant_id: tenant.id,
-        codigo,
-        link,
-        qr_url: qrUrl,
-        stripe_client_secret: pg.clientSecret,
-        stripe_pk: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-        plano: {
-          nome: planoEscolhido.nome,
-          valor: valorCob,
-          anual,
-          metodos: anual ? 'Cartão (parcelável) ou Pix' : 'Cartão de crédito',
-        },
-      })
-    }
-
-    // ---- Asaas: cliente + assinatura + link de pagamento ----
-    const cli = await obterOuCriarCliente({
+    // ---- STRIPE (checkout embutido no próprio site) — único gateway ----
+    // A conta só ativa quando o pagamento confirmar (webhook /api/stripe/webhook,
+    // que acha a barbearia pelo metadata.codigo do cliente Stripe).
+    const valorCob = parseFloat(planoEscolhido.valor_cobranca ?? planoEscolhido.preco_mensal)
+    const cliStr = await obterOuCriarClienteStripe({
       nome: nome_barbeiro || nome_barbearia,
       cpfCnpj: cpfLimpo,
       telefone: telefoneLimpo,
-      externalReference: codigo,
+      codigo,
     })
-    if (!cli.ok) {
-      return NextResponse.json({ error: `Não foi possível iniciar a cobrança: ${cli.erro}`, codigo }, { status: 502 })
+    const pg = anual
+      ? await criarPagamentoAnual({ customerId: cliStr, codigo, valorCentavos: Math.round(valorCob * 100) })
+      : await criarAssinaturaMensal({ customerId: cliStr, codigo })
+    if (!pg.ok) {
+      return NextResponse.json({ error: `Não foi possível iniciar o pagamento: ${pg.erro}`, codigo }, { status: 502 })
     }
-
-    const valorCobranca = parseFloat(planoEscolhido.valor_cobranca ?? planoEscolhido.preco_mensal)
-    const splitWallet = process.env.ASAAS_SPLIT_WALLET_ID
-    const splitPct = parseFloat(process.env.ASAAS_SPLIT_PCT || '50')
-    const split = splitWallet ? [{ walletId: splitWallet, percentualValue: splitPct }] : undefined
-    const descricao = `BarberIA — plano ${planoEscolhido.nome} (${nome_barbearia})`
-
-    // ANUAL = cobrança única (Pix à vista ou cartão parcelado).
-    // MENSAL = assinatura recorrente no cartão.
-    let asaasChargeId: string
-    let paymentLink: string | null
-    if (anual) {
-      const cob = await criarCobrancaAvulsa({ customerId: cli.id, valor: valorCobranca, split, descricao, externalReference: codigo })
-      if (!cob.ok) {
-        return NextResponse.json({ error: `Não foi possível gerar a cobrança: ${cob.erro}`, codigo }, { status: 502 })
-      }
-      asaasChargeId = cob.id
-      paymentLink = cob.invoiceUrl
-    } else {
-      const ass = await criarAssinatura({
-        customerId: cli.id,
-        valor: valorCobranca,
-        billingType: planoEscolhido.billing_type || 'CREDIT_CARD',
-        cycle: planoEscolhido.ciclo || 'MONTHLY',
-        split,
-        descricao,
-        externalReference: codigo,
-      })
-      if (!ass.ok) {
-        return NextResponse.json({ error: `Não foi possível gerar a assinatura: ${ass.erro}`, codigo }, { status: 502 })
-      }
-      asaasChargeId = ass.id
-      paymentLink = await linkCobrancaPendente(ass.id)
-    }
-
+    // ids do Stripe guardados nas colunas asaas_* (reaproveitadas).
     await supabaseAdmin
       .from('tenants')
-      .update({ asaas_customer_id: cli.id, asaas_subscription_id: asaasChargeId, asaas_payment_link: paymentLink })
+      .update({ asaas_customer_id: cliStr, asaas_subscription_id: pg.id })
       .eq('id', tenant.id)
-
-    // Sem boas-vindas aqui: o acesso é liberado e avisado no WhatsApp só quando o
-    // pagamento confirmar (workflow n8n "[BarberIA] - Asaas Pagamentos").
 
     return NextResponse.json({
       success: true,
@@ -210,12 +141,13 @@ export async function POST(req: NextRequest) {
       codigo,
       link,
       qr_url: qrUrl,
-      payment_link: paymentLink,
+      stripe_client_secret: pg.clientSecret,
+      stripe_pk: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
       plano: {
         nome: planoEscolhido.nome,
-        valor: valorCobranca,
+        valor: valorCob,
         anual,
-        metodos: anual ? 'Pix à vista ou cartão parcelado' : 'Cartão de crédito',
+        metodos: anual ? 'Cartão (parcelável) ou Pix' : 'Cartão de crédito',
       },
     })
   } catch (error: any) {

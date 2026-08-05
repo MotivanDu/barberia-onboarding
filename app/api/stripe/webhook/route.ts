@@ -65,6 +65,30 @@ async function ativarPago(codigo: string, valorReais: number) {
   await enviarTexto(CENTRAL, FELIPE, aviso).catch(() => {})
 }
 
+// Assinatura mensal não paga (cartão falhou) → bloqueia TUDO + manda o link pra
+// religar (a fatura hospedada do Stripe onde o barbeiro atualiza o cartão e paga).
+async function bloquearFalha(customerId: string | null, hostedUrl: string | null) {
+  const codigo = await codigoDoCliente(customerId)
+  if (!codigo) return
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants').select('id, nome_barbearia').eq('codigo', codigo).single()
+  if (!tenant) return
+  await supabaseAdmin
+    .from('tenants')
+    .update({ sistema_ativo: false, bloqueado_pagamento: true })
+    .eq('id', tenant.id)
+  const { data: barbeiro } = await supabaseAdmin
+    .from('barbeiros').select('telefone').eq('tenant_id', tenant.id).eq('ativo', true).limit(1).maybeSingle()
+  if (barbeiro?.telefone) {
+    const msg =
+      `⚠️ *Pagamento não aprovado* — sua barbearia *${tenant.nome_barbearia}* foi pausada.\n\n` +
+      `Seu atendimento por IA está desligado até regularizar.` +
+      (hostedUrl ? `\n\n💳 Pague/atualize o cartão aqui pra religar na hora:\n${hostedUrl}` : '') +
+      `\n\n💈 BarberIA`
+    await enviarTexto(CENTRAL, String(barbeiro.telefone).replace(/\D/g, ''), msg).catch(() => {})
+  }
+}
+
 export async function POST(req: NextRequest) {
   const assinatura = req.headers.get('stripe-signature') || ''
   const raw = await req.text()
@@ -88,6 +112,9 @@ export async function POST(req: NextRequest) {
       const inv = evento.data.object as { customer: string | null; amount_paid: number }
       const codigo = await codigoDoCliente(inv.customer)
       if (codigo) await ativarPago(codigo, inv.amount_paid / 100)
+    } else if (evento.type === 'invoice.payment_failed') {
+      const inv = evento.data.object as { customer: string | null; hosted_invoice_url?: string | null }
+      await bloquearFalha(inv.customer, inv.hosted_invoice_url || null)
     }
   } catch (e) {
     // não estoura pro Stripe (senão ele reenvia): loga e responde 200
