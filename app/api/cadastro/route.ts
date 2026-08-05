@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import QRCode from 'qrcode'
 import { asaasConfigurado, obterOuCriarCliente, criarAssinatura, criarCobrancaAvulsa, linkCobrancaPendente } from '@/lib/asaas'
+import { stripeConfigurado, obterOuCriarClienteStripe, criarAssinaturaMensal, criarPagamentoAnual } from '@/lib/stripe'
 
 function gerarCodigo(nome: string): string {
   const base = nome
@@ -111,6 +112,43 @@ export async function POST(req: NextRequest) {
       }))
       const { error: e } = await supabaseAdmin.from('horarios_funcionamento').insert(horariosData)
       if (e) throw e
+    }
+
+    // ---- STRIPE (checkout embutido) — ativado por gateway:'stripe' (?gw=stripe).
+    // Roda em PARALELO com o Asaas; a virada final é só mudar o default no front.
+    if (String(body.gateway || '') === 'stripe' && stripeConfigurado()) {
+      const valorCob = parseFloat(planoEscolhido.valor_cobranca ?? planoEscolhido.preco_mensal)
+      const cliStr = await obterOuCriarClienteStripe({
+        nome: nome_barbeiro || nome_barbearia,
+        cpfCnpj: cpfLimpo,
+        telefone: telefoneLimpo,
+        codigo,
+      })
+      const pg = anual
+        ? await criarPagamentoAnual({ customerId: cliStr, codigo, valorCentavos: Math.round(valorCob * 100) })
+        : await criarAssinaturaMensal({ customerId: cliStr, codigo })
+      if (!pg.ok) {
+        return NextResponse.json({ error: `Não foi possível iniciar o pagamento: ${pg.erro}`, codigo }, { status: 502 })
+      }
+      await supabaseAdmin
+        .from('tenants')
+        .update({ asaas_customer_id: cliStr, asaas_subscription_id: pg.id })
+        .eq('id', tenant.id)
+      return NextResponse.json({
+        success: true,
+        tenant_id: tenant.id,
+        codigo,
+        link,
+        qr_url: qrUrl,
+        stripe_client_secret: pg.clientSecret,
+        stripe_pk: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+        plano: {
+          nome: planoEscolhido.nome,
+          valor: valorCob,
+          anual,
+          metodos: anual ? 'Cartão (parcelável) ou Pix' : 'Cartão de crédito',
+        },
+      })
     }
 
     // ---- Asaas: cliente + assinatura + link de pagamento ----

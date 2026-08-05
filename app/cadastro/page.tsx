@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import Logo from '../_components/Logo'
+import StripeCheckout from './StripeCheckout'
 
 const DIAS = [
   { label: 'Domingo', value: 0 },
@@ -29,6 +30,8 @@ type Resultado = {
   link: string
   qrcode: string
   payment_link: string | null
+  stripe_client_secret?: string | null
+  stripe_pk?: string | null
   panelLink: string
   plano: { nome: string; valor: number; anual: boolean; metodos: string }
 }
@@ -100,6 +103,8 @@ export default function CadastroPage() {
         .filter(h => h.ativo)
         .map(h => ({ dia_semana: h.dia_semana, hora_inicio: h.hora_inicio, hora_fim: h.hora_fim }))
 
+      // gateway: ?gw=stripe usa Stripe (checkout embutido); padrão = Asaas
+      const gateway = new URLSearchParams(window.location.search).get('gw') === 'stripe' ? 'stripe' : 'asaas'
       const res = await fetch('/api/cadastro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -111,6 +116,7 @@ export default function CadastroPage() {
           plano,
           servicos,
           horarios: horariosAtivos,
+          gateway,
         }),
       })
 
@@ -123,6 +129,8 @@ export default function CadastroPage() {
         link: data.link,
         qrcode: qr,
         payment_link: data.payment_link || null,
+        stripe_client_secret: data.stripe_client_secret || null,
+        stripe_pk: data.stripe_pk || null,
         panelLink: `${window.location.origin}/painel/${data.codigo}`,
         plano: data.plano,
       })
@@ -396,8 +404,14 @@ export default function CadastroPage() {
               <p className="text-xs text-[#5b6472] mt-1">{resultado.plano.metodos}</p>
             </div>
 
-            {/* Botão de pagamento */}
-            {resultado.payment_link ? (
+            {/* Pagamento */}
+            {resultado.stripe_client_secret && resultado.stripe_pk ? (
+              <StripeCheckout
+                clientSecret={resultado.stripe_client_secret}
+                pk={resultado.stripe_pk}
+                codigo={resultado.codigo}
+              />
+            ) : resultado.payment_link ? (
               <a
                 href={resultado.payment_link}
                 target="_blank"
