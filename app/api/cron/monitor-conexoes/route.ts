@@ -87,6 +87,40 @@ export async function GET(req: NextRequest) {
   const upsertsOpen: any[] = []
   const agora = new Date().toISOString()
 
+  // ── GERENTE 2.0 — INSTABILIDADE (flapping) ──────────────────────────────
+  // O 'open' que envia não basta: um número pode ficar "piscando" (reconecta
+  // sem parar) e aí DUPLICA importação / engole mensagem, mesmo aparecendo no
+  // ar — foi o que passou batido antes. O fluxo n8n grava cada evento de
+  // conexão em `eventos_conexao`; aqui contamos os da última janela: excesso =
+  // instável → avisa o Du + restart (o restart estabiliza, igual fizemos na mão).
+  const JANELA_FLAP_MIN = 10
+  const LIMITE_FLAP = 8
+  const desdeFlap = new Date(Date.now() - JANELA_FLAP_MIN * 60 * 1000).toISOString()
+  const { data: eventosFlap } = await supabaseAdmin
+    .from('eventos_conexao').select('instancia').gte('criado_em', desdeFlap)
+  const flapCount: Record<string, number> = {}
+  for (const e of eventosFlap || []) flapCount[e.instancia] = (flapCount[e.instancia] || 0) + 1
+  const instaveis = Object.entries(flapCount)
+    .filter(([, n]) => n >= LIMITE_FLAP)
+    .map(([name, n]) => ({ name, n }))
+  // não deixa a tabela crescer: mantém ~2h de histórico
+  await supabaseAdmin.from('eventos_conexao')
+    .delete().lt('criado_em', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
+
+  // avisa o Du sobre instabilidade — ANTES do restart (Evolution ainda no ar
+  // pra conseguir enviar) e no máximo 1x/30min por instância (sem spam)
+  const upsertsFlap: any[] = []
+  let instabilidadeAvisada = 0
+  for (const ins of instaveis) {
+    const flapRow = (anteriores || []).find((a: any) => a.instancia === `${ins.name}__flap`)
+    const ultimoMs = flapRow?.atualizado_em ? new Date(flapRow.atualizado_em).getTime() : 0
+    if (Date.now() - ultimoMs < 30 * 60 * 1000) continue
+    const friendly = amigavel(ins.name)
+    const wa = await enviarPorAlguma(`⚠️ *INSTABILIDADE DETECTADA*\n\n${friendly} está *instável* — reconectou ${ins.n}x em ${JANELA_FLAP_MIN} min (fica "piscando", mesmo aparecendo no ar). Isso duplica mensagens e pode engolir atendimentos.\n\n🔄 Vou reiniciar o servidor automaticamente pra estabilizar. Se se repetir muito, o chip desse número precisa ser trocado.`)
+    const em = await enviarEmailAlerta('⚠️ BarberIA: instância instável (piscando)', `${friendly.replace(/\*/g, '')} reconectou ${ins.n}x em ${JANELA_FLAP_MIN} min. Restart automático a caminho.`)
+    if (wa || em.ok) { instabilidadeAvisada++; upsertsFlap.push({ instancia: `${ins.name}__flap`, estado: 'instavel', avisado: true, atualizado_em: agora }) }
+  }
+
   for (const inst of instancias) {
     const prev = prevPorInst[inst.name]
     const st = estadoReal[inst.name]
@@ -106,7 +140,7 @@ export async function GET(req: NextRequest) {
   // queda "limpa" (logout de verdade / device_removed) o restart NÃO resolve —
   // aí é re-scan de QR, e o barbeiro já recebe o link automático (self-service).
   let autoRestart = false
-  if (zumbis.length > 0 && easypanelConfigurado()) {
+  if ((zumbis.length > 0 || instaveis.length > 0) && easypanelConfigurado()) {
     const lastRst = (anteriores || []).find((a: any) => a.instancia === '__last_restart__')
     const lastMs = lastRst?.atualizado_em ? new Date(lastRst.atualizado_em).getTime() : 0
     if (Date.now() - lastMs > 30 * 60 * 1000) {
@@ -157,7 +191,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const todosUpserts = [...upsertsOpen, ...upsertsClose]
+  const todosUpserts = [...upsertsOpen, ...upsertsClose, ...upsertsFlap]
   if (todosUpserts.length > 0) {
     await supabaseAdmin.from('alertas_conexao').upsert(todosUpserts, { onConflict: 'instancia' })
   }
@@ -172,6 +206,8 @@ export async function GET(req: NextRequest) {
     barbeiros_avisados: barbeirosAvisados,
     auto_restart: autoRestart,
     zumbis: zumbis.length,
+    instaveis: instaveis.map(i => ({ nome: i.name, eventos: i.n })),
+    instabilidade_avisada: instabilidadeAvisada,
     remetentes_disponiveis: remetentes.length,
     estados: instancias.map(i => ({ nome: i.name, estado: i.state, envia: estadoReal[i.name] === 'open' })),
   })
