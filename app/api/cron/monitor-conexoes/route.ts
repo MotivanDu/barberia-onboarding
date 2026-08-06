@@ -94,7 +94,11 @@ export async function GET(req: NextRequest) {
   // conexão em `eventos_conexao`; aqui contamos os da última janela: excesso =
   // instável → avisa o Du + restart (o restart estabiliza, igual fizemos na mão).
   const JANELA_FLAP_MIN = 10
-  const LIMITE_FLAP = 8
+  // Barra ALTA de propósito: piscada benigna (uso ativo do celular linkado) gera
+  // ~5-10 eventos/10min e NÃO quebra nada (a instância segue 'open' e enviando).
+  // Só uma TEMPESTADE real (tipo a de 06/08, que travou as mensagens) passa de 20.
+  // Assim o gerente não dá alarme falso — só age quando é problema de verdade.
+  const LIMITE_FLAP = 20
   const desdeFlap = new Date(Date.now() - JANELA_FLAP_MIN * 60 * 1000).toISOString()
   const { data: eventosFlap } = await supabaseAdmin
     .from('eventos_conexao').select('instancia').gte('criado_em', desdeFlap)
