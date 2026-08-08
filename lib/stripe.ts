@@ -52,11 +52,16 @@ export async function criarAssinaturaMensal(params: {
       items: [{ price: priceId }],
       payment_behavior: 'default_incomplete',
       payment_settings: { save_default_payment_method: 'on_subscription' },
-      expand: ['latest_invoice.payment_intent'],
+      // API nova do Stripe: o segredo do 1º pagamento vem em confirmation_secret
+      // (payment_intent na invoice virou null). Fallback pro payment_intent por segurança.
+      expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent'],
       metadata: { codigo: params.codigo, plano: 'mensal' },
     })
-    const invoice = sub.latest_invoice as unknown as { payment_intent?: { client_secret?: string } }
-    const cs = invoice?.payment_intent?.client_secret
+    const invoice = sub.latest_invoice as unknown as {
+      confirmation_secret?: { client_secret?: string }
+      payment_intent?: { client_secret?: string }
+    }
+    const cs = invoice?.confirmation_secret?.client_secret || invoice?.payment_intent?.client_secret
     if (!cs) return { ok: false, erro: 'Stripe não retornou o client_secret da assinatura' }
     return { ok: true, id: sub.id, clientSecret: cs }
   } catch (e) {
