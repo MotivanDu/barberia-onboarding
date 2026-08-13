@@ -144,8 +144,6 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const raw = await req.text()
   const hdrHottok = req.headers.get('x-hotmart-hottok') || ''
-  // captura temporária: guarda o hottok (do header) + payload cru pra eu conferir
-  try { await supabaseAdmin.from('hotmart_debug').insert({ raw: 'HOTTOK=' + hdrHottok + '\n' + raw.slice(0, 8000) }) } catch {}
   let body: any = {}
   try { body = JSON.parse(raw) } catch {}
 
