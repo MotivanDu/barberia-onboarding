@@ -136,6 +136,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const raw = await req.text()
+  // captura temporária: guarda o payload cru pra eu conferir o formato exato da Hotmart
+  try { await supabaseAdmin.from('hotmart_debug').insert({ raw: raw.slice(0, 8000) }) } catch {}
   let body: any = {}
   try { body = JSON.parse(raw) } catch {}
 
