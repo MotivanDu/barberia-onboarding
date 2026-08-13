@@ -12,7 +12,6 @@ export const dynamic = 'force-dynamic'
 const CENTRAL = 'BarberIA'
 const FELIPE = '555181209727'
 const BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://barberia-onboarding.vercel.app'
-const WHATS = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
 
 async function numeroAlerta(): Promise<string> {
   const { data } = await supabaseAdmin.from('configuracoes').select('valor').eq('chave', 'numero_alerta').maybeSingle()
@@ -38,8 +37,16 @@ function extrairComprador(body: any) {
 
 // Descobre o plano pela chave de rastreamento "Plano" (Mensal/Anual) ou pela oferta.
 function extrairPlano(body: any): 'mensal' | 'anual' {
+  // a chave de rastreamento "Plano" (Mensal/Anual) vem em purchase.offer.metadata
+  const meta = body?.data?.purchase?.offer?.metadata || {}
+  for (const k of Object.keys(meta)) {
+    if (k.toLowerCase() === 'plano') {
+      const v = String(meta[k]).toLowerCase()
+      if (v.includes('anual')) return 'anual'
+      if (v.includes('mensal')) return 'mensal'
+    }
+  }
   const raw = JSON.stringify(body || {}).toLowerCase()
-  if (/"plano"\s*[:,]\s*"?\s*anual|anual/.test(raw)) return 'anual'
   return raw.includes('mensal') ? 'mensal' : 'anual'
 }
 
@@ -48,8 +55,8 @@ function codigoHotmart(body: any): string | null {
   const p = d.purchase || {}
   const s = d.subscription || {}
   return primeiro<string>(
-    s.subscriber?.code, s.code, p.subscription?.subscriber?.code,
-    p.transaction, d.transaction
+    s.subscriber?.code, s.subscriber_code, s.code,
+    p.subscription?.subscriber?.code, p.transaction, d.transaction
   ) as string | null
 }
 
@@ -136,12 +143,13 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const raw = await req.text()
-  // captura temporária: guarda o payload cru pra eu conferir o formato exato da Hotmart
-  try { await supabaseAdmin.from('hotmart_debug').insert({ raw: raw.slice(0, 8000) }) } catch {}
+  const hdrHottok = req.headers.get('x-hotmart-hottok') || ''
+  // captura temporária: guarda o hottok (do header) + payload cru pra eu conferir
+  try { await supabaseAdmin.from('hotmart_debug').insert({ raw: 'HOTTOK=' + hdrHottok + '\n' + raw.slice(0, 8000) }) } catch {}
   let body: any = {}
   try { body = JSON.parse(raw) } catch {}
 
-  const hottok = req.headers.get('x-hotmart-hottok') || body?.hottok || ''
+  const hottok = hdrHottok || body?.hottok || ''
   const esperado = process.env.HOTMART_HOTTOK || ''
   const hottokOk = !!esperado && hottok === esperado
 
