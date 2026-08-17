@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
 import { usuarioAutorizado } from '@/lib/adminAuth'
-import { cancelarAssinaturaStripe } from '@/lib/stripe'
 
 function autorizado(senha: string | null) {
   return usuarioAutorizado(senha) !== null
@@ -237,15 +236,12 @@ export async function POST(req: NextRequest) {
         .single()
       if (!tenant) return NextResponse.json({ error: 'Barbearia não encontrada' }, { status: 404 })
 
-      // Só ajusta o plano do tenant (MRR/gestão). A cobrança de verdade acontece
-      // no /cadastro (Stripe). Remover o plano cancela a assinatura no Stripe.
+      // Só ajusta o plano do tenant (MRR/gestão). A cobrança de verdade é feita
+      // na Hotmart. Pra PARAR de cobrar, cancele a assinatura na Hotmart (ou o
+      // próprio cliente cancela) — aí o webhook de cancelamento pausa a barbearia.
       const patch: Record<string, unknown> = {
         plano_id: plano_id || null,
         contrato_inicio: plano_id ? new Date().toISOString().slice(0, 10) : null,
-      }
-      if (!plano_id && tenant.asaas_subscription_id) {
-        await cancelarAssinaturaStripe(tenant.asaas_subscription_id)
-        patch.asaas_subscription_id = null
       }
 
       const { error } = await supabaseAdmin.from('tenants').update(patch).eq('codigo', cod)
@@ -292,8 +288,8 @@ export async function POST(req: NextRequest) {
       if (id) {
         const { error } = await supabaseAdmin.from('planos').update(dados).eq('id', id)
         if (error) throw error
-        // Assinaturas Stripe já criadas mantêm o preço contratado; a mudança de valor
-        // vale para os NOVOS cadastros (não repreça retroativamente quem já assinou).
+        // O preço aqui é só para gestão/relatórios (MRR). A cobrança real é na
+        // Hotmart — mudar o valor aqui não repreça quem já assinou lá.
       } else {
         const { error } = await supabaseAdmin.from('planos').insert(dados)
         if (error) throw error
@@ -318,9 +314,8 @@ export async function POST(req: NextRequest) {
       const cod = String(body.codigo).toUpperCase()
       const { data: tenant } = await supabaseAdmin.from('tenants').select('id, asaas_subscription_id').eq('codigo', cod).single()
       if (!tenant) return NextResponse.json({ error: 'Barbearia não encontrada' }, { status: 404 })
-      if (tenant.asaas_subscription_id) {
-        await cancelarAssinaturaStripe(tenant.asaas_subscription_id)
-      }
+      // Obs.: excluir aqui apaga os dados locais, mas NÃO cancela a assinatura na
+      // Hotmart. Se ela ainda estiver ativa, cancele também na Hotmart pra parar a cobrança.
       for (const tbl of ['agendamentos', 'mensagens', 'conversas_ia', 'horarios_funcionamento', 'servicos', 'clientes', 'barbeiros']) {
         await supabaseAdmin.from(tbl).delete().eq('tenant_id', tenant.id)
       }

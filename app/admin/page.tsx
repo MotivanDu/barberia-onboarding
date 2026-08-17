@@ -584,7 +584,7 @@ export default function AdminPage() {
         {aba === 'planos' && dash && (
           <div className="space-y-3 max-w-3xl">
             <p className="text-[#5b6472] text-sm">
-              Ao alterar o valor de um plano, todas as assinaturas ativas dele são atualizadas automaticamente no Asaas.
+              O valor aqui é usado só para gestão e relatórios (MRR). A cobrança de verdade é feita na Hotmart — mudar o preço aqui não altera o que já está sendo cobrado de quem assinou.
             </p>
             {dash.planos.filter(p => p.ativo !== false).map(p => (
               <PlanoEditor key={p.id} plano={p} onSalvar={pl => acao({ acao: 'salvar-plano', plano: pl })} />
