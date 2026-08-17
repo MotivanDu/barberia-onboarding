@@ -37,7 +37,11 @@ function extrairComprador(body: any) {
 
 // Descobre o plano pela chave de rastreamento "Plano" (Mensal/Anual) ou pela oferta.
 function extrairPlano(body: any): 'mensal' | 'anual' {
-  // a chave de rastreamento "Plano" (Mensal/Anual) vem em purchase.offer.metadata
+  // 1º: pelo CÓDIGO da oferta (mais confiável) — offers do produto BarberIA
+  const offerCode = body?.data?.purchase?.offer?.code || ''
+  if (offerCode === 'acttv9w0') return 'mensal'
+  if (offerCode === '86tjapw4') return 'anual'
+  // 2º: chave de rastreamento "Plano" (Mensal/Anual) em purchase.offer.metadata
   const meta = body?.data?.purchase?.offer?.metadata || {}
   for (const k of Object.keys(meta)) {
     if (k.toLowerCase() === 'plano') {

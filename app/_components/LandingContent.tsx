@@ -103,7 +103,7 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
             <a href="#precos" className="hover:opacity-70">Preços</a>
             <Link href="/login" className="hover:opacity-70">Entrar</Link>
           </nav>
-          <Link href="/cadastro?plano=anual" className={`${btnPrimary} px-4 py-2 text-sm`} style={primaryStyle}>
+          <Link href="https://pay.hotmart.com/A107134686T?off=86tjapw4" className={`${btnPrimary} px-4 py-2 text-sm`} style={primaryStyle}>
             Assinar
           </Link>
         </div>
@@ -124,7 +124,7 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
               marca o horário sozinho e ainda chama de volta quem sumiu. Você só corta.
             </p>
             <div className="flex flex-wrap gap-3 mt-7">
-              <Link href="/cadastro?plano=anual" className={`${btnPrimary} px-6 py-4 text-lg`} style={primaryStyle}>
+              <Link href="https://pay.hotmart.com/A107134686T?off=86tjapw4" className={`${btnPrimary} px-6 py-4 text-lg`} style={primaryStyle}>
                 ✂️ Cadastrar minha barbearia
               </Link>
               <a href="#precos" className="rounded-xl px-6 py-4 font-semibold text-lg border" style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--card)' }}>
@@ -308,7 +308,7 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
               <div className="mt-3 inline-block rounded-full px-3 py-1 text-xs" style={{ background: 'var(--soft)', color: 'var(--muted)' }}>
                 💳 No cartão de crédito
               </div>
-              <Link href="/cadastro?plano=mensal" className="mt-6 block text-center rounded-xl py-3 font-semibold border" style={{ borderColor: 'var(--border)', color: 'var(--text)' }}>
+              <Link href="https://pay.hotmart.com/A107134686T?off=acttv9w0" className="mt-6 block text-center rounded-xl py-3 font-semibold border" style={{ borderColor: 'var(--border)', color: 'var(--text)' }}>
                 Assinar o mensal
               </Link>
             </div>
@@ -331,7 +331,7 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
               <div className="mt-3 inline-block rounded-full px-3 py-1 text-xs" style={{ background: 'rgba(28,82,248,0.10)', color: AZUL }}>
                 💠 Pix à vista ou cartão em até 12x
               </div>
-              <Link href="/cadastro?plano=anual" className={`mt-6 block text-center ${btnPrimary} py-3`} style={primaryStyle}>
+              <Link href="https://pay.hotmart.com/A107134686T?off=86tjapw4" className={`mt-6 block text-center ${btnPrimary} py-3`} style={primaryStyle}>
                 Quero o anual (17% OFF)
               </Link>
             </div>
@@ -422,7 +422,7 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
           <p className="mt-4 text-lg" style={{ color: 'var(--muted)' }}>
             Deixe o BarberIA responder, agendar e trazer cliente de volta — enquanto você corta.
           </p>
-          <Link href="/cadastro?plano=anual" className={`inline-block mt-8 ${btnPrimary} px-8 py-4 text-lg`} style={primaryStyle}>
+          <Link href="https://pay.hotmart.com/A107134686T?off=86tjapw4" className={`inline-block mt-8 ${btnPrimary} px-8 py-4 text-lg`} style={primaryStyle}>
             ✂️ Cadastrar minha barbearia
           </Link>
           <p className="text-sm mt-4" style={{ color: 'var(--muted)' }}>
