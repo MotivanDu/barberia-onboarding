@@ -103,9 +103,9 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
             <a href="#precos" className="hover:opacity-70">Preços</a>
             <Link href="/login" className="hover:opacity-70">Entrar</Link>
           </nav>
-          <Link href="https://pay.hotmart.com/A107134686T?off=86tjapw4" className={`${btnPrimary} px-4 py-2 text-sm`} style={primaryStyle}>
+          <a href="#precos" className={`${btnPrimary} px-4 py-2 text-sm`} style={primaryStyle}>
             Assinar
-          </Link>
+          </a>
         </div>
       </header>
 
@@ -124,9 +124,9 @@ export default function LandingContent({ theme }: { theme: 'light' | 'dark' }) {
               marca o horário sozinho e ainda chama de volta quem sumiu. Você só corta.
             </p>
             <div className="flex flex-wrap gap-3 mt-7">
-              <Link href="https://pay.hotmart.com/A107134686T?off=86tjapw4" className={`${btnPrimary} px-6 py-4 text-lg`} style={primaryStyle}>
+              <a href="#precos" className={`${btnPrimary} px-6 py-4 text-lg`} style={primaryStyle}>
                 ✂️ Cadastrar minha barbearia
-              </Link>
+              </a>
               <a href="#precos" className="rounded-xl px-6 py-4 font-semibold text-lg border" style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--card)' }}>
                 Ver os planos
               </a>
