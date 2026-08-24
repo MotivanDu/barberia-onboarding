@@ -2,7 +2,7 @@ const PASSOS: [string, string][] = [
   ['1️⃣', 'Abra o seu WhatsApp e ache a mensagem do BarberIA 💈'],
   ['2️⃣', 'Toque no link que a gente te mandou'],
   ['3️⃣', 'Escreva o nome da barbearia, os serviços e os horários (leva 2 minutinhos)'],
-  ['4️⃣', 'Aponte a câmera no QR Code pra ligar o WhatsApp da sua barbearia'],
+  ['4️⃣', 'Ligue o WhatsApp da sua barbearia digitando o código que aparece na tela (é rapidinho — o site te ensina certinho)'],
   ['✅', 'Pronto! A partir daí a IA atende seus clientes sozinha, dia e noite'],
 ]
 
