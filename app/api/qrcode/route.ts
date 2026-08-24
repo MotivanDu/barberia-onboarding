@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
         {
           error: numeroLimpo
             ? 'Não foi possível gerar o código agora. Aguarde uns segundos e tente de novo.'
-            : 'Não foi possível gerar o QR Code. Aguarde uns segundos e tente de novo.',
+            : 'Não foi possível gerar o código. Aguarde uns segundos e tente de novo.',
           state,
         },
         { status: 502 }

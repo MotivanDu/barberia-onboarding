@@ -17,7 +17,7 @@ const DORES = [
 ]
 const PASSOS = [
   { n: '1', t: 'Cadastre sua barbearia', d: 'Serviços, preços e horários. Leva uns 5 minutos, direto do celular.' },
-  { n: '2', t: 'Conecte seu WhatsApp', d: 'O seu número mesmo — por QR Code ou código (funciona até no iPhone).' },
+  { n: '2', t: 'Conecte seu WhatsApp', d: 'O seu número mesmo — com um código simples no próprio celular (funciona até no iPhone).' },
   { n: '3', t: 'A IA começa a atender', d: 'Ela responde, agenda e te avisa de cada cliente. Você só corta.' },
 ]
 const RECURSOS = [
@@ -37,7 +37,7 @@ const FAQ = [
   { q: 'Preciso trocar o número da barbearia?', a: 'Não. O BarberIA usa o SEU número atual. O cliente continua falando com a sua barbearia de sempre.' },
   { q: 'E se eu perder o celular ou trocar de chip?', a: 'É só conectar o número novo no painel. Seus clientes, agendamentos, histórico e relatórios continuam todos salvos — nada é perdido.' },
   { q: 'A IA responde de forma natural?', a: 'Sim. Ela conversa como uma pessoa, entende gíria e vai direto ao ponto: preço, horário e agendamento, sem enrolação.' },
-  { q: 'Funciona no iPhone?', a: 'Funciona. A conexão pode ser feita por QR Code ou por um código de 8 dígitos, que é o jeito mais fácil no iPhone.' },
+  { q: 'Funciona no iPhone?', a: 'Funciona. A conexão é feita por um código de 8 dígitos que você digita no próprio WhatsApp — fácil no iPhone e no Android, sem precisar de outro aparelho.' },
   { q: 'Como funciona o atendimento da minha barbearia?', a: 'O BarberIA cuida da sua barbearia como um todo: você cadastra a barbearia (serviços, preços e horários) e a IA atende os clientes e marca na agenda da barbearia. É a barbearia completa, num só lugar.' },
   { q: 'Preciso entender de tecnologia?', a: 'Não. O cadastro leva 5 minutos e é tudo pelo celular. Depois disso, a IA cuida do atendimento sozinha.' },
   { q: 'Posso mudar meus preços e serviços depois?', a: 'Quando quiser. Alterou no painel, a IA já passa a usar o valor novo na mesma hora.' },

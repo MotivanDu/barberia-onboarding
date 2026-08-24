@@ -175,7 +175,7 @@ export async function GET(req: NextRequest) {
       const link = `${BASE}/qrcode/${t.codigo}`
       const okBarbeiro = await enviarPara(
         tel,
-        `⚠️ Ops! O WhatsApp da sua barbearia *${t.nome}* caiu e parou de atender seus clientes. 📵\n\nReconecte agora — leva 30 segundos:\n${link}\n\nAbra o link, escaneie o QR com *este* WhatsApp e pronto. 💈`
+        `⚠️ Ops! O WhatsApp da sua barbearia *${t.nome}* caiu e parou de atender seus clientes. 📵\n\nReconecte agora — leva 30 segundos:\n${link}\n\nAbra o link, gere o *código* e conecte pelo WhatsApp da barbearia. Pronto! 💈`
       )
       if (okBarbeiro) barbeirosAvisados++
     }

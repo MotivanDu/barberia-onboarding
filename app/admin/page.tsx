@@ -613,8 +613,8 @@ export default function AdminPage() {
             {centralState === 'open' && centralEnvioOk === false && (
               <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-sm text-amber-900 space-y-2">
                 <p className="font-semibold">⚠️ O número aparece conectado, mas está sem enviar mensagens.</p>
-                <p>Isso quase sempre é o <b>chip instável ou derrubado</b> (usado no WhatsApp Web/outro aparelho ao mesmo tempo, sem sinal, ou banido). Coloque um <b>chip dedicado e estável</b> só para o BarberIA e gere um novo QR abaixo.</p>
-                <p>Se o QR não aparecer ou não resolver, a sessão travou no servidor: reinicie o app <b>Evolution</b> no Easypanel (Deploy → Restart) e gere o QR de novo.</p>
+                <p>Isso quase sempre é o <b>chip instável ou derrubado</b> (usado no WhatsApp Web/outro aparelho ao mesmo tempo, sem sinal, ou banido). Coloque um <b>chip dedicado e estável</b> só para o BarberIA e gere um novo código de conexão abaixo.</p>
+                <p>Se não aparecer ou não resolver, a sessão travou no servidor: reinicie o app <b>Evolution</b> no Easypanel (Deploy → Restart) e gere de novo.</p>
               </div>
             )}
 
