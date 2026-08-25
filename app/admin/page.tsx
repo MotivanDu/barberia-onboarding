@@ -547,60 +547,83 @@ export default function AdminPage() {
           const arpa = ativas ? Math.round((k.mrr || 0) / ativas) : 0
           const gmvIA = Math.round(((k.gmv_total || 0) * (k.gmv_ia_pct || 0)) / 100)
           const retencao = k.barbearias_total ? Math.round((100 * ativas) / k.barbearias_total) : 100
-          const cres = dash.series.crescimento || []
-          const novasMes = cres.length ? cres[cres.length - 1].novas : 0
+          const clientesPorBarb = ativas ? Math.round((k.clientes_finais || 0) / ativas) : 0
+          const agsPorBarb = ativas ? Math.round((k.agendamentos_concluidos_total || 0) / ativas) : 0
+          const gmvPorBarb = ativas ? Math.round((k.gmv_total || 0) / ativas) : 0
+          const mesesContrato = arpa ? Math.round((k.ltv_medio || 0) / arpa) : 0
           const valLow = Math.round((k.arr || 0) * 4)
           const valHigh = Math.round((k.arr || 0) * 8)
+          let _acc = 0
+          const acumuladas = (dash.series.crescimento || []).map(x => ({ mes: x.mes, total: (_acc += x.novas) }))
+          const nA = acumuladas.length
+          const baseAtual = nA ? acumuladas[nA - 1].total : 0
+          const baseAnt = nA > 1 ? acumuladas[nA - 2].total : 0
+          const momPct = baseAnt ? Math.round((100 * (baseAtual - baseAnt)) / baseAnt) : baseAtual ? 100 : 0
+          const valProj = (dash.series.previsao_receita || []).map(x => ({ mes: x.mes, valuation: Math.round((x.valor || 0) * 12 * 6) }))
+          const valProj12 = valProj.length ? valProj[valProj.length - 1].valuation : Math.round((k.arr || 0) * 6)
           return (
             <div className="space-y-6">
-              {/* HERO — o número da capa pra apresentação */}
+              {/* HERO — valuation (número da capa) */}
               <div className="rounded-2xl p-6 text-white" style={{ background: 'linear-gradient(135deg,#1c52f8,#1746d8)' }}>
                 <div className="flex flex-wrap items-end justify-between gap-4">
                   <div>
-                    <p className="text-blue-100 text-sm">Receita recorrente anual · ARR</p>
-                    <p className="text-5xl font-extrabold leading-none mt-1">{brl(k.arr)}</p>
-                    <p className="text-blue-100 mt-2">
-                      MRR {brl(k.mrr)} · {ativas} barbearia(s) pagante(s) · {novasMes} nova(s) este mês
-                    </p>
+                    <p className="text-blue-100 text-sm">Referência de valuation · múltiplo SaaS 4–8× ARR</p>
+                    <p className="text-4xl md:text-5xl font-extrabold leading-none mt-1">{brl(valLow)} — {brl(valHigh)}</p>
+                    <p className="text-blue-100 mt-2">Base: ARR {brl(k.arr)} · run-rate {brl(k.arr)}/ano · {ativas} barbearia(s)</p>
                   </div>
                   <div className="bg-white/15 rounded-xl px-4 py-3">
-                    <p className="text-blue-100 text-xs">Referência de valuation (múltiplo SaaS 4–8× ARR)</p>
-                    <p className="text-2xl font-bold">{brl(valLow)} — {brl(valHigh)}</p>
+                    <p className="text-blue-100 text-xs">💎 Valuation projetado — 12 meses</p>
+                    <p className="text-2xl font-bold">{brl(valProj12)}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Métricas de SaaS */}
+              {/* Crescimento & eficiência (derivadas — diferentes da Visão Geral) */}
               <div>
-                <p className="font-semibold mb-2 text-[#5b6472]">📊 Métricas de SaaS</p>
+                <p className="font-semibold mb-2 text-[#5b6472]">🚀 Crescimento & eficiência</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <Card destaque titulo="MRR (receita mensal)" valor={brl(k.mrr)} sub={`ARR ${brl(k.arr)}`} />
-                  <Card titulo="Ticket médio (ARPA)" valor={brl(arpa)} sub="por barbearia/mês" />
+                  <Card destaque titulo="Crescimento da base (MoM)" valor={`${momPct >= 0 ? '+' : ''}${momPct}%`} sub="barbearias mês a mês" />
+                  <Card titulo="ARPA (ticket médio)" valor={brl(arpa)} sub="por barbearia/mês" />
                   <Card titulo="Retenção" valor={`${retencao}%`} sub={`churn ${k.churn_pct}%`} />
-                  <Card titulo="LTV médio" valor={brl(k.ltv_medio)} sub="por contrato" />
-                  <Card titulo="Backlog contratado" valor={brl(k.backlog_contratado)} sub="receita já fechada" />
-                  <Card titulo="Barbearias pagantes" valor={String(ativas)} sub={`${k.barbearias_total} no total · ${k.barbearias_canceladas} canceladas`} />
+                  <Card titulo="Tempo de casa (LTV)" valor={mesesContrato ? `${mesesContrato} meses` : '—'} sub={`LTV ${brl(k.ltv_medio)}`} />
                 </div>
               </div>
 
-              {/* Rede & footprint econômico */}
+              {/* Unit economics por barbearia */}
               <div>
-                <p className="font-semibold mb-2 text-[#5b6472]">🌐 Rede & footprint econômico</p>
+                <p className="font-semibold mb-2 text-[#5b6472]">🌐 Economia por barbearia (unit economics)</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <Card titulo="Clientes finais na rede" valor={String(k.clientes_finais)} sub="atendidos pelas barbearias" />
-                  <Card titulo="GMV movimentado" valor={brl(k.gmv_total)} sub="total transacionado" />
+                  <Card titulo="Clientes por barbearia" valor={String(clientesPorBarb)} sub={`${k.clientes_finais} na rede`} />
+                  <Card titulo="Agendamentos por barbearia" valor={String(agsPorBarb)} sub="concluídos" />
+                  <Card titulo="GMV por barbearia" valor={brl(gmvPorBarb)} sub="movimentado" />
                   <Card destaque titulo="Gerado pela IA" valor={brl(gmvIA)} sub={`${k.gmv_ia_pct}% do GMV`} />
-                  <Card titulo="Agendamentos concluídos" valor={String(k.agendamentos_concluidos_total)} sub={`${k.resgates_enviados} resgates enviados`} />
                 </div>
               </div>
 
-              {/* Crescimento */}
+              {/* Gráficos diferentes da Visão Geral: base acumulada + valuation projetado */}
               <div className="grid md:grid-cols-2 gap-4">
-                <GraficoBox titulo="📈 Trajetória de receita — próximos 12 meses">
+                <GraficoBox titulo="🏪 Base de barbearias (acumulada)">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={dash.series.previsao_receita}>
+                    <AreaChart data={acumuladas}>
                       <defs>
-                        <linearGradient id="gVal" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="gAcc" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10b981" stopOpacity={0.7} />
+                          <stop offset="100%" stopColor="#10b981" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
+                      <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Area type="monotone" dataKey="total" stroke="#10b981" fill="url(#gAcc)" name="Barbearias" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </GraficoBox>
+                <GraficoBox titulo="💎 Valuation projetado — próximos 12 meses">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={valProj}>
+                      <defs>
+                        <linearGradient id="gValP" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#1c52f8" stopOpacity={0.7} />
                           <stop offset="100%" stopColor="#1c52f8" stopOpacity={0.05} />
                         </linearGradient>
@@ -609,19 +632,8 @@ export default function AdminPage() {
                       <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
                       <YAxis stroke="#6b7280" fontSize={11} />
                       <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => brl(Number(v))} />
-                      <Area type="monotone" dataKey="valor" stroke="#1c52f8" fill="url(#gVal)" name="Receita" />
+                      <Area type="monotone" dataKey="valuation" stroke="#1c52f8" fill="url(#gValP)" name="Valuation" />
                     </AreaChart>
-                  </ResponsiveContainer>
-                </GraficoBox>
-                <GraficoBox titulo="🏪 Novas barbearias por mês">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dash.series.crescimento}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
-                      <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
-                      <Tooltip contentStyle={tooltipStyle} />
-                      <Bar dataKey="novas" fill="#10b981" radius={[6, 6, 0, 0]} name="Novas" />
-                    </BarChart>
                   </ResponsiveContainer>
                 </GraficoBox>
               </div>
