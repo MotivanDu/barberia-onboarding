@@ -122,6 +122,7 @@ export default function AdminPage() {
   const [aba, setAba] = useState<'visao' | 'barbearias' | 'clientes' | 'planos' | 'central' | 'alertas'>('visao')
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'ativo' | 'cancelado'>('todos')
+  const [verClientes, setVerClientes] = useState(false)
   const [qr, setQr] = useState<string | null>(null)
   const [gerandoQr, setGerandoQr] = useState(false)
   const [centralState, setCentralState] = useState('')
@@ -349,7 +350,7 @@ export default function AdminPage() {
             [
               ['visao', '📊 Visão Geral'],
               ['barbearias', '🏪 Barbearias'],
-              ['clientes', '👥 Clientes'],
+              ['clientes', '📈 Valuation'],
               ['planos', '💳 Planos'],
               ['central', '📱 Nº Central'],
               ['alertas', '🔔 Alertas'],
@@ -541,45 +542,141 @@ export default function AdminPage() {
           </div>
         )}
 
-        {aba === 'clientes' && dash && (
-          <div className="space-y-3">
-            <input
-              value={busca}
-              onChange={e => setBusca(e.target.value)}
-              placeholder="🔎 Buscar por nome, telefone ou barbearia..."
-              className="w-full bg-white border border-[#e5e7eb] rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#1c52f8]"
-            />
-            <p className="text-[#5b6472] text-sm">{clientesFiltrados.length} cliente(s)</p>
-            <div className="bg-white border border-[#e5e7eb] rounded-2xl overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-[#5b6472] border-b border-[#e5e7eb]">
-                    <th className="p-3">Cliente</th>
-                    <th className="p-3">Telefone</th>
-                    <th className="p-3">Barbearia</th>
-                    <th className="p-3">Último atendimento</th>
-                    <th className="p-3">Última conversa</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clientesFiltrados.slice(0, 200).map((c, i) => (
-                    <tr key={i} className="border-b border-[#e5e7eb]/50">
-                      <td className="p-3">{c.nome}</td>
-                      <td className="p-3 font-mono text-[#5b6472]">{c.telefone}</td>
-                      <td className="p-3">{c.barbearia}</td>
-                      <td className="p-3 text-[#5b6472]">
-                        {c.ultimo_atendimento ? new Date(c.ultimo_atendimento).toLocaleDateString('pt-BR') : '—'}
-                      </td>
-                      <td className="p-3 text-[#5b6472]">
-                        {c.ultima_conversa ? new Date(c.ultima_conversa).toLocaleDateString('pt-BR') : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        {aba === 'clientes' && dash && (() => {
+          const ativas = k.barbearias_ativas || 0
+          const arpa = ativas ? Math.round((k.mrr || 0) / ativas) : 0
+          const gmvIA = Math.round(((k.gmv_total || 0) * (k.gmv_ia_pct || 0)) / 100)
+          const retencao = k.barbearias_total ? Math.round((100 * ativas) / k.barbearias_total) : 100
+          const cres = dash.series.crescimento || []
+          const novasMes = cres.length ? cres[cres.length - 1].novas : 0
+          const valLow = Math.round((k.arr || 0) * 4)
+          const valHigh = Math.round((k.arr || 0) * 8)
+          return (
+            <div className="space-y-6">
+              {/* HERO — o número da capa pra apresentação */}
+              <div className="rounded-2xl p-6 text-white" style={{ background: 'linear-gradient(135deg,#1c52f8,#1746d8)' }}>
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <p className="text-blue-100 text-sm">Receita recorrente anual · ARR</p>
+                    <p className="text-5xl font-extrabold leading-none mt-1">{brl(k.arr)}</p>
+                    <p className="text-blue-100 mt-2">
+                      MRR {brl(k.mrr)} · {ativas} barbearia(s) pagante(s) · {novasMes} nova(s) este mês
+                    </p>
+                  </div>
+                  <div className="bg-white/15 rounded-xl px-4 py-3">
+                    <p className="text-blue-100 text-xs">Referência de valuation (múltiplo SaaS 4–8× ARR)</p>
+                    <p className="text-2xl font-bold">{brl(valLow)} — {brl(valHigh)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Métricas de SaaS */}
+              <div>
+                <p className="font-semibold mb-2 text-[#5b6472]">📊 Métricas de SaaS</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Card destaque titulo="MRR (receita mensal)" valor={brl(k.mrr)} sub={`ARR ${brl(k.arr)}`} />
+                  <Card titulo="Ticket médio (ARPA)" valor={brl(arpa)} sub="por barbearia/mês" />
+                  <Card titulo="Retenção" valor={`${retencao}%`} sub={`churn ${k.churn_pct}%`} />
+                  <Card titulo="LTV médio" valor={brl(k.ltv_medio)} sub="por contrato" />
+                  <Card titulo="Backlog contratado" valor={brl(k.backlog_contratado)} sub="receita já fechada" />
+                  <Card titulo="Barbearias pagantes" valor={String(ativas)} sub={`${k.barbearias_total} no total · ${k.barbearias_canceladas} canceladas`} />
+                </div>
+              </div>
+
+              {/* Rede & footprint econômico */}
+              <div>
+                <p className="font-semibold mb-2 text-[#5b6472]">🌐 Rede & footprint econômico</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Card titulo="Clientes finais na rede" valor={String(k.clientes_finais)} sub="atendidos pelas barbearias" />
+                  <Card titulo="GMV movimentado" valor={brl(k.gmv_total)} sub="total transacionado" />
+                  <Card destaque titulo="Gerado pela IA" valor={brl(gmvIA)} sub={`${k.gmv_ia_pct}% do GMV`} />
+                  <Card titulo="Agendamentos concluídos" valor={String(k.agendamentos_concluidos_total)} sub={`${k.resgates_enviados} resgates enviados`} />
+                </div>
+              </div>
+
+              {/* Crescimento */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <GraficoBox titulo="📈 Trajetória de receita — próximos 12 meses">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={dash.series.previsao_receita}>
+                      <defs>
+                        <linearGradient id="gVal" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#1c52f8" stopOpacity={0.7} />
+                          <stop offset="100%" stopColor="#1c52f8" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
+                      <YAxis stroke="#6b7280" fontSize={11} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => brl(Number(v))} />
+                      <Area type="monotone" dataKey="valor" stroke="#1c52f8" fill="url(#gVal)" name="Receita" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </GraficoBox>
+                <GraficoBox titulo="🏪 Novas barbearias por mês">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dash.series.crescimento}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} />
+                      <YAxis stroke="#6b7280" fontSize={11} allowDecimals={false} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Bar dataKey="novas" fill="#10b981" radius={[6, 6, 0, 0]} name="Novas" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </GraficoBox>
+              </div>
+
+              {/* Lista de clientes (secundária, num botão) */}
+              <div className="space-y-3">
+                <button
+                  onClick={() => setVerClientes(v => !v)}
+                  className="bg-white border border-[#e5e7eb] hover:bg-[#eef0f4] rounded-xl px-4 py-3 font-medium"
+                >
+                  👥 {verClientes ? 'Ocultar lista de clientes' : `Ver lista de clientes (${dash.clientes.length})`}
+                </button>
+                {verClientes && (
+                  <div className="space-y-3">
+                    <input
+                      value={busca}
+                      onChange={e => setBusca(e.target.value)}
+                      placeholder="🔎 Buscar por nome, telefone ou barbearia..."
+                      className="w-full bg-white border border-[#e5e7eb] rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#1c52f8]"
+                    />
+                    <p className="text-[#5b6472] text-sm">{clientesFiltrados.length} cliente(s)</p>
+                    <div className="bg-white border border-[#e5e7eb] rounded-2xl overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-[#5b6472] border-b border-[#e5e7eb]">
+                            <th className="p-3">Cliente</th>
+                            <th className="p-3">Telefone</th>
+                            <th className="p-3">Barbearia</th>
+                            <th className="p-3">Último atendimento</th>
+                            <th className="p-3">Última conversa</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {clientesFiltrados.slice(0, 200).map((c, i) => (
+                            <tr key={i} className="border-b border-[#e5e7eb]/50">
+                              <td className="p-3">{c.nome}</td>
+                              <td className="p-3 font-mono text-[#5b6472]">{c.telefone}</td>
+                              <td className="p-3">{c.barbearia}</td>
+                              <td className="p-3 text-[#5b6472]">
+                                {c.ultimo_atendimento ? new Date(c.ultimo_atendimento).toLocaleDateString('pt-BR') : '—'}
+                              </td>
+                              <td className="p-3 text-[#5b6472]">
+                                {c.ultima_conversa ? new Date(c.ultima_conversa).toLocaleDateString('pt-BR') : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {aba === 'planos' && dash && (
           <div className="space-y-3 max-w-3xl">
