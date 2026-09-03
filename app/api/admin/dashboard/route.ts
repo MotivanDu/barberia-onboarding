@@ -45,11 +45,13 @@ export async function GET(req: NextRequest) {
       supabaseAdmin.from('mensagens').select('tenant_id, tipo, enviado_em').limit(5000),
     ])
 
-  const ts = tenants || []
+  // Barbearia(s) de DEMONSTRAÇÃO (pro vendedor mostrar) NÃO entram nos números do dono.
+  const demoIds = new Set((tenants || []).filter(t => t.codigo === 'MODELO').map(t => t.id))
+  const ts = (tenants || []).filter(t => !demoIds.has(t.id))
   const ps = planos || []
-  const cs = clientes || []
-  const ags = agendamentos || []
-  const msgs = mensagens || []
+  const cs = (clientes || []).filter(c => !demoIds.has(c.tenant_id))
+  const ags = (agendamentos || []).filter(a => !demoIds.has(a.tenant_id))
+  const msgs = (mensagens || []).filter(m => !demoIds.has(m.tenant_id))
 
   // Dashboard central = só contas ATIVAS (pagas). Canceladas/teste não entram nos números agregados.
   const tsAtivos = ts.filter(t => t.status_assinatura === 'ativo')
